@@ -1,0 +1,53 @@
+1. What registers are read from and written to in each of the interface
+    methods of mkMyConflictFifo?
+
+notEmpty
+    read:          empty
+    written: 
+first
+    read:         data  deqP  empty
+    written:
+deq
+    read:         empty  deqP enqP
+    written:      deqP    empty   full
+notFull
+    read:         full
+    written:
+enq
+    read:        full  enqP  deqP
+    written:     full  empty  data enqP
+clear
+    read:
+    written:     enqP  deqP  empty  full
+
+
+
+2. Fill the conflict Matrix for mkMyConflictFifo.
+
+           notEmpty   first   deq   notFull   enq   clear
+         +----------+-------+-----+---------+-----+-------+
+notEmpty |    CF    |   CF  |  <  |   CF    |  <  |   <   |
+         +----------+-------+-----+---------+-----+-------+
+first    |    CF    |   CF  |  <  |   CF    |  <  |   <   |
+         +----------+-------+-----+---------+-----+-------+
+deq      |     >    |   >   |  C  |    >    |  C  |   C   |
+         +----------+-------+-----+---------+-----+-------+
+notFull  |    CF    |   CF  |  <  |   CF    |  <  |   <   |
+         +----------+-------+-----+---------+-----+-------+
+enq      |     >    |   >   |  C  |    >    |  C  |   C   |
+         +----------+-------+-----+---------+-----+-------+
+clear    |     >    |   >   |  C  |    >    |  C  |   C   |
+         +----------+-------+-----+---------+-----+-------+
+
+
+
+3. Which conflicts from mkMyConflictFifo do not match the conflict-free FIFO
+    scheduling constraints?
+
+
+
+4. In your design of the clear method in mkMyCFFifo, how did you force the
+    scheduling constraint {enq, deq} < clear?
+
+
+
