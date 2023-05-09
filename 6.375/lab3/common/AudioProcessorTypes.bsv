@@ -30,3 +30,5 @@ endfunction
 typedef 8 FFT_POINTS;
 typedef TLog#(FFT_POINTS) FFT_LOG_POINTS;
 
+typedef 2 STRIDE;
+

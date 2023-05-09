@@ -52,9 +52,10 @@ module mkPitchAdjust(Integer s, FixedPoint#(isize, fsize) factor, PitchAdjust#(n
         FixedPoint#(isize, fsize) fp_cnt = fromInt(unpack(t));
 
         
-
+        // TODO can use accumlate to replace multiple
         let bin = fxptGetInt(fp_cnt * factor);
         let nbin = fxptGetInt((fp_cnt + 1) * factor);
+        
 
         if (nbin != bin && bin >= 0 && bin < nbin) begin
             FixedPoint#(isize, fsize) fp_dphase = fromInt(dphase);

@@ -77,9 +77,9 @@ module mkTestDriver (Empty);
         $finish();
     endrule
 
-    rule print_clock;
-        $display("============");
-    endrule
+    // rule print_clock;
+    //     $display("============");
+    // endrule
 
 endmodule
 
