@@ -15,11 +15,19 @@ typedef Server#(
 ) PitchAdjust#(numeric type nbins, numeric type isize, numeric type fsize, numeric type psize);
 
 
+interface SettablePitchAdjust#(numeric type nbins, numeric type isize, numeric type fsize, numeric type psize);
+
+    interface PitchAdjust#(nbins, isize, fsize, psize) adjust;
+    interface Put#(FixedPoint#(isize, fsize)) setFactor;
+
+endinterface
+
+
 // s - the amount each window is shifted from the previous window.
 //
 // factor - the amount to adjust the pitch.
 //  1.0 makes no change. 2.0 goes up an octave, 0.5 goes down an octave, etc...
-module mkPitchAdjust(Integer s, FixedPoint#(isize, fsize) factor, PitchAdjust#(nbins, isize, fsize, psize) ifc) provisos(
+module mkPitchAdjust(Integer s,  SettablePitchAdjust#(nbins, isize, fsize, psize) ifc) provisos(
     Add#(psize, a__, isize),
     Add#(TLog#(nbins), b__, isize),
     Add#(c__, psize, TAdd#(isize, isize))
@@ -39,8 +47,12 @@ module mkPitchAdjust(Integer s, FixedPoint#(isize, fsize) factor, PitchAdjust#(n
     Reg#(Bit#(TLog#(nbins))) cnt <- mkReg(0);
     Reg#(Bool) running <- mkReg(False);
 
+    Reg#(Maybe#(FixedPoint#(isize, fsize)) ) _factor <- mkReg(tagged Invalid);
 
-    rule do_pitch (running==True);
+
+    rule do_pitch (running==True && isValid(_factor));
+
+        let factor = fromMaybe(?, _factor);
 
         let phase = in[cnt].phase;
         let mag = in[cnt].magnitude;
@@ -85,9 +97,16 @@ module mkPitchAdjust(Integer s, FixedPoint#(isize, fsize) factor, PitchAdjust#(n
         outp.enq(out);
     endrule
  
+    interface PitchAdjust adjust;
+        interface Put request = toPut(inp);
+        interface Get response = toGet(outp);
+    endinterface
 
-    interface Put request = toPut(inp);
-    interface Get response = toGet(outp);
+    interface Put setFactor;
+        method Action put(FixedPoint#(isize, fsize) x) if (!isValid(_factor));
+            _factor <= tagged Valid x;
+        endmethod
+    endinterface
 
 endmodule
 

@@ -12,22 +12,26 @@ import ComplexMP::*;
 module mkPitchAdjustTest (Empty);
 
     // For nbins = 8, S = 2, pitch factor = 2.0
-    PitchAdjust#(8, 16, 16, 16) adjust <- mkPitchAdjust(2, 2);
+    SettablePitchAdjust#(8, 16, 16, 16) pitch <- mkPitchAdjust(2);
 
     Reg#(Bool) passed <- mkReg(True);
     Reg#(Bit#(32)) feed <- mkReg(0);
     Reg#(Bit#(32)) check <- mkReg(0);
 
+    rule set_factor;
+        pitch.setFactor.put(2);
+    endrule
+
     function Action dofeed(Vector#(8, ComplexMP#(16, 16, 16)) x);
         action
-            adjust.request.put(x);
+            pitch.adjust.request.put(x);
             feed <= feed+1;
         endaction
     endfunction
 
     function Action docheck(Vector#(8, ComplexMP#(16, 16, 16)) wnt);
         action
-            let x <- adjust.response.get();
+            let x <- pitch.adjust.response.get();
             if (x != wnt) begin
                 $display("wnt: ", fshow(wnt));
                 $display("got: ", fshow(x));

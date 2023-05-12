@@ -2,6 +2,7 @@
 import Complex::*;
 import FixedPoint::*;
 import Reg6375::*;
+import GetPut::*;
 
 export AudioProcessorTypes::*;
 export Reg6375::*;
@@ -11,6 +12,7 @@ typedef Int#(16) Sample;
 interface AudioProcessor;
     method Action putSampleInput(Sample in);
     method ActionValue#(Sample) getSampleOutput();
+    interface Put#(FixedPoint#(16, 16)) setFactor;
 endinterface
 
 

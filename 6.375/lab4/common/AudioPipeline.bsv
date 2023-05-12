@@ -15,19 +15,59 @@ import ToMP::*;
 import PitchAdjust::*;
 import Vector::*;
 
+
+(* synthesize *)
+module mkAudioPipelineFIR(AudioProcessor);
+    AudioProcessor fir <- mkFIRFilter(c);
+    return fir;
+endmodule
+
+(* synthesize *)
+module mkAudioPipelineFFT(FFT#(FFT_POINTS, FixedPoint#(16, 16)));
+    FFT#(FFT_POINTS, FixedPoint#(16, 16)) fft <- mkFFT();
+    return fft;
+endmodule
+
+
+(* synthesize *)
+module mkAudioPipelineIFFT(FFT#(FFT_POINTS, FixedPoint#(16, 16)));
+    FFT#(FFT_POINTS, FixedPoint#(16, 16)) fft <- mkIFFT();
+    return fft;
+endmodule
+
+
+(* synthesize *)
+module mkAudioPipelineToMP(ToMP#(FFT_POINTS,16,16,16));
+    ToMP#(FFT_POINTS,16,16,16) to_mp <- mkToMP();
+    return to_mp;
+endmodule
+
+(* synthesize *)
+module mkAudioPipelineFromMP(FromMP#(FFT_POINTS,16,16,16));
+    FromMP#(FFT_POINTS,16,16,16) from_mp <- mkFromMP();
+    return from_mp;
+endmodule
+
+(* synthesize *)
+module mkAudioPipelinePitchAdjust(SettablePitchAdjust#(FFT_POINTS,16,16,16));
+    SettablePitchAdjust#(FFT_POINTS,16,16,16) pitch_adj <- mkPitchAdjust(valueOf(STRIDE));
+    return pitch_adj;
+endmodule
+
+
 module mkAudioPipeline(AudioProcessor);
 
-    AudioProcessor fir <- mkFIRFilter(c);
+    AudioProcessor fir <- mkAudioPipelineFIR();
     Chunker#(STRIDE, Sample) chunker <- mkChunker();
     OverSampler#(STRIDE, FFT_POINTS, Sample) over_sampler <- mkOverSampler(replicate(0));
 
-    FFT#(FFT_POINTS, FixedPoint#(16, 16)) fft <- mkFFT();
-    ToMP#(FFT_POINTS,16,16,16) to_mp <- mkToMP();
+    FFT#(FFT_POINTS, FixedPoint#(16, 16)) fft <- mkAudioPipelineFFT();
+    ToMP#(FFT_POINTS,16,16,16) to_mp <- mkAudioPipelineToMP();
 
-    PitchAdjust#(FFT_POINTS,16,16,16) pitch_adj <- mkPitchAdjust(valueOf(STRIDE), 2);
-    FromMP#(FFT_POINTS,16,16,16) from_mp <- mkFromMP();
+    SettablePitchAdjust#(FFT_POINTS,16,16,16) pitch_adj <- mkAudioPipelinePitchAdjust();
+    FromMP#(FFT_POINTS,16,16,16) from_mp <- mkAudioPipelineFromMP();
 
-    FFT#(FFT_POINTS, FixedPoint#(16, 16)) ifft <- mkIFFT();
+    FFT#(FFT_POINTS, FixedPoint#(16, 16)) ifft <- mkAudioPipelineIFFT();
 
     Overlayer#(FFT_POINTS,STRIDE,Sample) over_layer <- mkOverlayer(replicate(0));
     Splitter#(STRIDE, Sample) splitter <- mkSplitter();
@@ -58,11 +98,11 @@ module mkAudioPipeline(AudioProcessor);
 
     rule to_mp_to_pitch_adjust (True);
         let x <- to_mp.response.get();
-        pitch_adj.request.put(x);
+        pitch_adj.adjust.request.put(x);
     endrule
 
     rule pitch_adjust_to_from_mp (True);
-        let x <- pitch_adj.response.get();
+        let x <- pitch_adj.adjust.response.get();
         from_mp.request.put(x);
     endrule
 
@@ -94,6 +134,8 @@ module mkAudioPipeline(AudioProcessor);
         let x <- splitter.response.get();
         return x;
     endmethod
+
+    interface Put setFactor = pitch_adj.setFactor;
 
 endmodule
 
