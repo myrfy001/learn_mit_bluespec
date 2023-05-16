@@ -1,1 +1,6 @@
 *.pcm
+riscv32-unknown-elf
+riscv-fesvr
+6.175/lab5/programs/build
+6.175/lab5/logs
+6.175/lab5/bluesim
