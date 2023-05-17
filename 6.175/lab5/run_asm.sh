@@ -23,7 +23,7 @@ asm_tests=(
 
 vmh_dir=programs/build/assembly/vmh
 log_dir=logs
-wait_time=3
+wait_time=0
 
 # create bsim log dir
 mkdir -p ${log_dir}
@@ -43,7 +43,7 @@ for test_name in ${asm_tests[@]}; do
 	cp ${mem_file} bluesim/mem.vmh 
 
 	# run test
-	make run.bluesim > ${log_dir}/${test_name}.log & # run bsim, redirect outputs to log
+	make run.bluesim > ${log_dir}/${test_name}.log # run bsim, redirect outputs to log
 	sleep ${wait_time}
 	echo ""
 done
