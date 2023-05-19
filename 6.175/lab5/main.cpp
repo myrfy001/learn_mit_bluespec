@@ -28,7 +28,7 @@ class ConnectalProcIndication: public ConnectalProcIndicationWrapper
 public:
     virtual void sendMessage(uint32_t msg){
 		    uint32_t type = msg>>16 ;
-            	    uint32_t data = msg & ( (1>>16) - 1);
+            	    uint32_t data = msg & ( (1<<16) - 1);
 			if(type == 0) {
 				if(data == 0) {
 					fprintf(stderr, "PASSED\n");
