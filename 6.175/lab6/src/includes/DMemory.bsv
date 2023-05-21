@@ -12,7 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 
 import Types::*;
-import CMemTypes::*;
+import MemTypes::*;
 import RegFile::*;
 import MemInit::*;
 
@@ -24,13 +24,8 @@ endinterface
 (* synthesize *)
 module mkDMemory(DMemory);
 	// In simulation we always init memory from a fixed VMH file (for speed)
-//`ifdef SIM
-	RegFile#(Bit#(16), Data) mem <- mkRegFileFullLoad("mem.vmh");
-	MemInitIfc memInit <- mkDummyMemInit;
-//`else
-//    RegFile#(Bit#(16), Data) mem <- mkRegFileFull();
- //   MemInitIfc memInit <- mkMemInitRegFile(mem);
-//`endif
+    RegFile#(Bit#(16), Data) mem <- mkRegFileFull();
+    MemInitIfc memInit <- mkMemInitRegFile(mem);
 
     method ActionValue#(MemResp) req(MemReq r) if (memInit.done());
         Bit#(16) index = truncate(r.addr>>2);

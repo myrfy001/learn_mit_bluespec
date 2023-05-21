@@ -16,7 +16,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 import Types::*;
 import FShow::*;
-import CMemTypes::*;
+import MemTypes::*;
 
 // cpu to host data type
 typedef enum {
@@ -61,7 +61,7 @@ typedef Bit#(12) CsrIndx;
 CsrIndx csrInstret = 12'hc02;
 CsrIndx csrCycle   = 12'hc00;
 CsrIndx csrMhartid = 12'hf10;
-CsrIndx csrMtohost = 12'h7a8;
+CsrIndx csrMtohost = 12'h780;
 
 // LR, SC, FENCE not implemented
 // LB(U), LH(U), SB, SH not implemented

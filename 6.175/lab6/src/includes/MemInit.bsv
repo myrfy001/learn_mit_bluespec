@@ -3,7 +3,7 @@ import GetPut::*;
 import BRAM::*;
 
 import Types::*;
-import CMemTypes::*;
+import MemTypes::*;
 import RegFile::*;
 
 module mkMemInitRegFile(RegFile#(Bit#(16), Data) mem, MemInitIfc ifc);
@@ -13,7 +13,7 @@ module mkMemInitRegFile(RegFile#(Bit#(16), Data) mem, MemInitIfc ifc);
         method Action put(MemInit x) if (!initialized);
           case (x) matches
             tagged InitLoad .l: begin
-                mem.upd(truncate(l.addr), l.data);
+                mem.upd(truncate(l.addr>>2), l.data);
             end
 
             tagged InitDone: begin
@@ -37,7 +37,7 @@ module mkMemInitBRAM(BRAM1Port#(Bit#(16), Data) mem, MemInitIfc ifc);
                 mem.portA.request.put(BRAMRequest {
                     write: True,
                     responseOnWrite: False,
-                    address: truncate(l.addr),
+                    address: truncate(l.addr>>2),
                     datain: l.data});
             end
 
