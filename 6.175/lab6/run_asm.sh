@@ -45,7 +45,7 @@ for test_name in ${asm_tests[@]}; do
 	cp ${mem_file} bluesim/program 
 
 	# run test
-	make run.bluesim > ${log_dir}/${test_name}.log & # run bsim, redirect outputs to log
+	make run.bluesim > ${log_dir}/${test_name}.log # run bsim, redirect outputs to log
 	sleep ${wait_time}
 	echo ""
 done
