@@ -71,7 +71,7 @@ typedef struct {
 module mkProc(Proc);
     Ehr#(2, Addr) pcReg <- mkEhr(?);
     RFile            rf <- mkRFile;
-	Scoreboard#(2)   sb <- mkCFScoreboard;
+	Scoreboard#(4)   sb <- mkCFScoreboard;
 	FPGAMemory        iMem <- mkFPGAMemory;
     FPGAMemory        dMem <- mkFPGAMemory;
     CsrFile        csrf <- mkCsrFile;
@@ -180,6 +180,16 @@ module mkProc(Proc);
 		end else begin
 			// execute
 			ExecInst eInst = exec(r2e.dInst, r2e.rVal1, r2e.rVal2, r2e.pc, r2e.predPc, r2e.csrVal);
+
+            if(eInst.mispredict) begin //no btb update?
+                $display("[%d] Execute finds misprediction: PC = %x", cycle, r2e.pc);
+                exeRedirect[0] <= Valid (ExeRedirect {
+                    pc: r2e.pc,
+                    nextPc: eInst.addr // Hint for discussion 1: check this line
+                });
+            end 
+
+
             // check unsupported instruction at commit time. Exiting
             if(eInst.iType == Unsupported) begin
                 $fwrite(stderr, "[%d] ERROR: Executing unsupported instruction at pc: %x. Exiting\n", cycle, r2e.pc);
@@ -249,16 +259,6 @@ module mkProc(Proc);
                 rf.wr(fromMaybe(?, eInst.dst), eInst.data);
             end
             csrf.wr(eInst.iType == Csrw ? eInst.csr : Invalid, eInst.data);
-
-            if(eInst.mispredict) begin //no btb update?
-                $display("[%d] Execute finds misprediction: PC = %x", cycle, m2w.pc);
-                exeRedirect[0] <= Valid (ExeRedirect {
-                    pc: m2w.pc,
-                    nextPc: eInst.addr // Hint for discussion 1: check this line
-                });
-            end else begin
-                $display("[%d] WriteBack: PC = %x", cycle, m2w.pc);
-            end
         end
 
         // remove from scoreboard
