@@ -184,7 +184,6 @@ module mkCFSFifo( function Bool isFound(dt x, st y), SFifo#(n, dt, st) ifc ) pro
 			if(enqEn[2] matches tagged Valid .x) begin
 				data[enqP] <= x;
 				enqP_nxt = nextPtr(enqP);
-                $display("22222222222222222222");
 			end
 			if(deqEn[2]) begin
 				deqP_nxt = nextPtr(deqP);
@@ -196,7 +195,6 @@ module mkCFSFifo( function Bool isFound(dt x, st y), SFifo#(n, dt, st) ifc ) pro
 			Bool isDeq = deqEn[2];
 			Bool nextPtrEq = deqP_nxt == enqP_nxt;
 			if(isEnq && !isDeq) begin
-                $display("1111111111111111111");
 				empty <= False;
 				full <= nextPtrEq;
 			end

@@ -71,7 +71,7 @@ typedef struct {
 module mkProc(Proc);
     Ehr#(2, Addr) pcReg <- mkEhr(?);
     RFile            rf <- mkRFile;
-	Scoreboard#(2)   sb <- mkCFScoreboard;
+	Scoreboard#(6)   sb <- mkCFScoreboard;
 	FPGAMemory        iMem <- mkFPGAMemory;
     FPGAMemory        dMem <- mkFPGAMemory;
     CsrFile        csrf <- mkCsrFile;
@@ -92,9 +92,14 @@ module mkProc(Proc);
 
     Bool memReady = iMem.init.done && dMem.init.done;
 
-	// fetch, decode, reg read stage
+    Reg#(Bit#(32)) cycle <- mkReg(0);
+
+    rule cycleCounter(csrf.started);
+        cycle <= cycle + 1;
+        $display("Cycle %d -------------------------", cycle);
+    endrule
+
 	rule doFetch(csrf.started);
-		// fetch
 		iMem.req(MemReq{op: Ld, addr: pcReg[0], data: ?});
 		Addr predPc = btb.predPc(pcReg[0]);
         pcReg[0] <= predPc;
@@ -106,7 +111,7 @@ module mkProc(Proc);
         };
 
         f2dFifo.enq(f2d);
-        $display("ReqFetch: PC = %x", pcReg[0]);
+        $display("[%d] ReqFetch: PC = %x", cycle, pcReg[0]);
     endrule
 	
     rule doDecode(csrf.started);
@@ -116,7 +121,7 @@ module mkProc(Proc);
         let inst <- iMem.resp;
 		DecodedInst dInst = decode(inst);
 
-        $display("Decode: PC = %x, inst = %x, expanded = ", f2d.pc, inst, showInst(inst));
+        $display("[%d] Decode: PC = %x, inst = %x, expanded = ", cycle, f2d.pc, inst, showInst(inst));
 
         Decode2RegFetch d2r = Decode2RegFetch {
             pc: f2d.pc,
@@ -130,7 +135,7 @@ module mkProc(Proc);
 
     rule doRegFetch(csrf.started);
 
-        let d2r = d2rFifo.first;
+        Decode2RegFetch d2r = d2rFifo.first;
         
 		// reg read
 		Data rVal1 = rf.rd1(fromMaybe(?, d2r.dInst.src1));
@@ -146,58 +151,38 @@ module mkProc(Proc);
 			csrVal: csrVal,
 			epoch: d2r.epoch
 		};
-
-        $display("xxxxxxxxxxxxxxxx  %x,  %x", d2r.dInst.src1, d2r.dInst.src2);
-        $display("yyyyyyyyyyyyyyyy  %x,  %x", sb.search1(d2r.dInst.src1), sb.search2(d2r.dInst.src2));
-
         
 		// search scoreboard to determine stall
 		if(!sb.search1(d2r.dInst.src1) && !sb.search2(d2r.dInst.src2)) begin
-            $display("Fetch Reg PC = %x", d2r.pc);
-            $display("Fetch Reg PC insert sb = %x", d2r.dInst.dst);
+            $display("[%d] Fetch Reg PC = %x", cycle, d2r.pc);
+            $display("[%d] Fetch Reg PC insert sb = %x", cycle, d2r.dInst.dst);
             d2rFifo.deq();
 			r2eFifo.enq(r2e);
 			sb.insert(d2r.dInst.dst);
 		end
 		else begin
-			$display("Fetch Reg Stalled: PC = %x", d2r.pc);
+			$display("[%d] Fetch Reg Stalled: PC = %x", cycle, d2r.pc);
 		end
 
     endrule
 
-
-
-	(* fire_when_enabled *)
-	(* no_implicit_conditions *)
-	rule cononicalizeRedirect(csrf.started);
-		if(exeRedirect[1] matches tagged Valid .r) begin
-			// fix mispred
-			pcReg[1] <= r.nextPc;
-			exeEpoch <= !exeEpoch; // flip epoch
-			btb.update(r.pc, r.nextPc); // train BTB
-			$display("Fetch: Mispredict, redirected by Execute");
-		end
-		// reset EHR
-		exeRedirect[1] <= Invalid;
-	endrule
 
 	// ex, mem, wb stage
 	rule doExecute(csrf.started);
 		r2eFifo.deq;
 		let r2e = r2eFifo.first;
 
-        $display("Execute: PC = %x", r2e.pc);
+        $display("[%d] Execute: PC = %x", cycle, r2e.pc);
 
 		if(r2e.epoch != exeEpoch) begin
 			e2mFifo.enq(tagged Invalid);
-			$display("Execute: Kill instruction");
-		end
-		else begin
+			$display("[%d] Execute: Kill instruction", cycle);
+		end else begin
 			// execute
 			ExecInst eInst = exec(r2e.dInst, r2e.rVal1, r2e.rVal2, r2e.pc, r2e.predPc, r2e.csrVal);
             // check unsupported instruction at commit time. Exiting
             if(eInst.iType == Unsupported) begin
-                $fwrite(stderr, "ERROR: Executing unsupported instruction at pc: %x. Exiting\n", r2e.pc);
+                $fwrite(stderr, "[%d] ERROR: Executing unsupported instruction at pc: %x. Exiting\n", cycle, r2e.pc);
                 $finish;
             end
             Execute2Memory e2m = Execute2Memory {
@@ -222,7 +207,7 @@ module mkProc(Proc);
 
         if (e2m_maybe matches tagged Valid .e2m) begin
             let eInst = e2m.eInst;
-            $display("Memory: PC = %x", e2m.pc);
+            $display("[%d] Memory: PC = %x", cycle, e2m.pc);
 
             // memory
             if(eInst.iType == Ld) begin
@@ -243,6 +228,7 @@ module mkProc(Proc);
             };
             m2wFifo.enq(tagged Valid m2w);
         end else begin
+            $display("[%d] Memory Invalid", cycle);
             m2wFifo.enq(tagged Invalid);
         end
     endrule    
@@ -265,23 +251,35 @@ module mkProc(Proc);
             csrf.wr(eInst.iType == Csrw ? eInst.csr : Invalid, eInst.data);
 
             if(eInst.mispredict) begin //no btb update?
-                $display("Execute finds misprediction: PC = %x", m2w.pc);
+                $display("[%d] Execute finds misprediction: PC = %x", cycle, m2w.pc);
                 exeRedirect[0] <= Valid (ExeRedirect {
                     pc: m2w.pc,
                     nextPc: eInst.addr // Hint for discussion 1: check this line
                 });
-            end
-            else begin
-                $display("WriteBack: PC = %x", m2w.pc);
+            end else begin
+                $display("[%d] WriteBack: PC = %x", cycle, m2w.pc);
             end
         end
 
         // remove from scoreboard
-        $display("Remove SB");
+        $display("[%d] Remove SB", cycle);
         sb.remove;
         
-    
     endrule  
+
+    (* fire_when_enabled *)
+	(* no_implicit_conditions *)
+	rule cononicalizeRedirect(csrf.started);
+		if(exeRedirect[1] matches tagged Valid .r) begin
+			// fix mispred
+			pcReg[1] <= r.nextPc;
+			exeEpoch <= !exeEpoch; // flip epoch
+			btb.update(r.pc, r.nextPc); // train BTB
+			$display("[%d] Fetch: Mispredict, redirected by Execute", cycle);
+		end
+		// reset EHR
+		exeRedirect[1] <= Invalid;
+	endrule
 
     method ActionValue#(CpuToHostData) cpuToHost if(csrf.started);
         let ret <- csrf.cpuToHost;
@@ -292,6 +290,7 @@ module mkProc(Proc);
 	$display("Start cpu");
         csrf.start(0); // only 1 core, id = 0
         pcReg[0] <= startpc;
+        cycle <= 0;
     endmethod
 
 	interface iMemInit = iMem.init;
