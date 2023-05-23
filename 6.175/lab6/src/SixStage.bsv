@@ -71,7 +71,7 @@ typedef struct {
 module mkProc(Proc);
     Ehr#(2, Addr) pcReg <- mkEhr(?);
     RFile            rf <- mkRFile;
-	Scoreboard#(6)   sb <- mkCFScoreboard;
+	Scoreboard#(2)   sb <- mkCFScoreboard;
 	FPGAMemory        iMem <- mkFPGAMemory;
     FPGAMemory        dMem <- mkFPGAMemory;
     CsrFile        csrf <- mkCsrFile;
