@@ -130,9 +130,11 @@ module mkProc(Proc);
 		Fetch2Decode f2d = f2dFifo.first;
         f2dFifo.deq;
 
+        // Even if epoch is wrong, we need to consume the data from memory, or it will queued.
+        let inst <- iMem.resp;
+
         if (f2d.eepoch == exeEpoch) begin
             if (f2d.depoch == decEpoch) begin
-                let inst <- iMem.resp;
                 DecodedInst dInst = decode(inst);
 
                 $display("[%d] Decode: PC = %x, inst = %x, expanded = ", cycle, f2d.pc, inst, showInst(inst));
