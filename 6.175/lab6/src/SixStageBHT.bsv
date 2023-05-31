@@ -140,18 +140,18 @@ module mkProc(Proc);
                 $display("[%d] Decode: PC = %x, inst = %x, expanded = ", cycle, f2d.pc, inst, showInst(inst));
 
                 let predPc = f2d.predPc;
-                if (dInst.iType == Br) begin
+                if (dInst.iType == Br || dInst.iType == J) begin
                     let decode_target_pc = f2d.pc + fromMaybe(?, dInst.imm);
-                    let bht_pc = bht.ppcDP(f2d.pc, decode_target_pc);
+                    let new_pc = dInst.iType == Br ? bht.ppcDP(f2d.pc, decode_target_pc) : decode_target_pc;
 
-                    if (bht_pc != f2d.predPc) begin
+                    if (new_pc != f2d.predPc) begin
                         decRedirect[0] <= tagged Valid DecRedirect {
                             pc: f2d.pc,
-                            nextPc: bht_pc
+                            nextPc: new_pc
                         };
-                        predPc = bht_pc;
+                        predPc = new_pc;
                     end
-                end
+                end 
                 Decode2RegFetch d2r = Decode2RegFetch {
                     pc: f2d.pc,
                     predPc: predPc,
