@@ -164,9 +164,11 @@ module mkProc(Proc);
                 if (dInst.iType == J || dInst.iType == Jr) begin
                     if ( fromMaybe(?,dInst.dst) == 1) begin
                         ras.push(f2d.pc + 4);
-                    end else if (fromMaybe(?,dInst.dst) == 0 && fromMaybe(?,dInst.src1) == 1) begin
+                        $display("[%d] Decode: PC = %x, RAS Push", cycle, f2d.pc);
+                    end else if (dInst.iType == Jr && isValid(dInst.dst) == False && fromMaybe(?,dInst.src1) == 1) begin
                         let t <- ras.pop();
                         let rasPred = fromMaybe(predPc, t);
+                        $display("[%d] Decode: PC = %x, RAS Pop, pred next PC = %x", cycle, f2d.pc, rasPred);
                         if (rasPred != f2d.predPc) begin
                             predPc = rasPred;
                             redirectReason = RedirectionRas;
