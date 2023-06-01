@@ -12,8 +12,19 @@ endinterface
 (* synthesize *)
 module mkFPGAMemory(FPGAMemory);
     BRAM_Configure cfg = defaultValue;
+
+`ifdef SIM
+	// directly load vmh in simulation
+	cfg.loadFormat = Hex ("mem.vmh");
+`endif
+
     BRAM1Port#(Bit#(16), Data) bram <- mkBRAM1Server(cfg);
+
+`ifdef SIM
+	MemInitIfc memInit <- mkDummyMemInit;
+`else
     MemInitIfc memInit <- mkMemInitBRAM(bram);
+`endif
 
     method Action req(MemReq r) if (memInit.done());
         bram.portA.request.put( BRAMRequest{

@@ -37,7 +37,7 @@ module mkCsrFile(CsrFile);
 
     rule count (startReg);
         cycles <= cycles + 1;
-        $display("\nCycle %d ----------------------------------------------------", cycles);
+        // $display("\nCycle %d ----------------------------------------------------", cycles);
     endrule
 
     method Action start(Data id) if(!startReg);

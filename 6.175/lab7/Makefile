@@ -1,4 +1,4 @@
-CONNECTALDIR ?= connectal
+CONNECTALDIR ?= /opt/connectal
 S2H_INTERFACES = \
 	ConnectalProcRequest:ConnectalWrapper.connectProc\
 	ConnectalMemoryInitialization:ConnectalWrapper.initProc
@@ -29,3 +29,7 @@ include $(CONNECTALDIR)/Makefile.connectal
 clean:
 	rm -rf bluesim
 
+simple_compile:
+	mkdir -p buildDir
+	bsc -u -sim -show-schedule -sched-dot -bdir buildDir -info-dir buildDir -simdir buildDir -vdir buildDir -p +:src/includes/ -aggressive-conditions -keep-fires src/WithoutCache.bsv
+	# bsc -sim -e mkProc -bdir buildDir -info-dir buildDir -simdir buildDir -o buildDir/simProc 
