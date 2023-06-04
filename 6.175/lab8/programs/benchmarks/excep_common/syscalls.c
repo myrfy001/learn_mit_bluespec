@@ -17,15 +17,15 @@ enum ToHostTag {
 void printInt_hdl(uint32_t c) {
 	// print low 16 bits
 	int lo = (c & 0x0000FFFF) | (((uint32_t)PrintIntLow) << 16);
-	asm volatile ("csrw mtohost, %0" : : "r" (lo));
+	asm volatile ("csrw mcontext, %0" : : "r" (lo));
 	// print high 16 bits
 	int hi = (c >> 16) | (((uint32_t)PrintIntHigh) << 16);
-	asm volatile ("csrw mtohost, %0" : : "r" (hi));
+	asm volatile ("csrw mcontext, %0" : : "r" (hi));
 }
 
 void printChar_hdl(uint32_t c) {
 	c = (c & 0x0000FFFF) | (((uint32_t)PrintChar) << 16);
-  asm volatile ("csrw mtohost, %0" : : "r" (c));
+  asm volatile ("csrw mcontext, %0" : : "r" (c));
 }
 
 void printStr_hdl(char* x) {
@@ -61,7 +61,7 @@ void mul_hdl(int dest_idx, int src1_idx, int src2_idx, long *regs) {
 // exit handler
 void toHostExit_hdl(uint32_t ret) {
 	ret = (ret & 0x0000FFFF) | (((uint32_t) ExitCode) << 16);
-	asm volatile ("csrw mtohost, %0" : : "r" (ret));
+	asm volatile ("csrw mcontext, %0" : : "r" (ret));
 	// stall here
 	while(1);
 }

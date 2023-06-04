@@ -39,7 +39,7 @@ module mkCsrFile(CsrFile);
     Reg#(Data) numInsts <- mkReg(0); // csrInstret -- read only
     Reg#(Data)   cycles <- mkReg(0); // csrCycle -- read only
 	Reg#(Data)   coreId <- mkReg(0); // csrMhartid -- read only
-    Fifo#(2, CpuToHostData) toHostFifo <- mkCFFifo; // csrMtohost -- write only
+    Fifo#(2, CpuToHostData) toHostFifo <- mkCFFifo; // csrMcontext -- write only
 
 	Reg#(Data)  mstatus <- mkReg(32'b001_111); // PRV0 = M, IE0 = 1, PRV1 = U, IE1 = 1
 	Reg#(Data)     mepc <- mkRegU;
@@ -79,7 +79,7 @@ module mkCsrFile(CsrFile);
     method Action wr(Maybe#(CsrIndx) csrIdx, Data val);
         if(csrIdx matches tagged Valid .idx) begin
             case (idx)
-				csrMtohost: begin
+				csrMcontext: begin
 					// high 16 bits encodes type, low 16 bits are data
 					Bit#(16) hi = truncateLSB(val);
 					Bit#(16) lo = truncate(val);

@@ -61,7 +61,7 @@ typedef Bit#(12) CsrIndx;
 CsrIndx csrInstret = 12'hc02;
 CsrIndx csrCycle   = 12'hc00;
 CsrIndx csrMhartid = 12'hf10;
-CsrIndx csrMtohost = 12'h780;
+CsrIndx csrMcontext = 12'h780;
 CsrIndx csrMstatus = 12'h300; // mstatus
 CsrIndx csrMtvec   = 12'h301; // mtvec
 CsrIndx csrMepc    = 12'h341; // mepc

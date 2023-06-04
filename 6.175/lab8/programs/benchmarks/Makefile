@@ -34,11 +34,12 @@ bmarks_host = \
 HOST_OPTS := -std=gnu99 -DPREALLOCATE=0 -DHOST_DEBUG=1 -I$(commondir)
 HOST_COMP := gcc $(HOST_OPTS)
 
-RISCV_TOOL_DIR := /mit/6.175/rv32-gcc/bin
+RISCV_TOOL_DIR := /bsc-work/riscv32-unknown-elf/bin
 RISCV_PREFIX := $(RISCV_TOOL_DIR)/riscv32-unknown-elf
 # gcc
 RISCV_GCC := $(RISCV_PREFIX)-gcc
-RISCV_GCC_OPTS := -static -Wa,-march=RVI -std=gnu99 -O2 -ffast-math -fno-common -fno-builtin-printf
+# RISCV_GCC_OPTS := -static -Wa,-march=RVI -std=gnu99 -O2 -ffast-math -fno-common -fno-builtin-printf
+RISCV_GCC_OPTS = -static -fvisibility=hidden -nostdlib -nostartfiles -Wa,-march=rv32i_zicsr -mabi=ilp32
 incs := -I$(bmarkdir)/../env -I$(bmarkdir)/common
 bmarks_defs := -DPREALLOCATE=0 -DHOST_DEBUG=0
 # link
@@ -47,7 +48,8 @@ RISCV_LINK_OPTS := -nostdlib -nostartfiles -ffast-math -lc -lgcc
 # objdump
 RISCV_OBJDUMP := $(RISCV_PREFIX)-objdump --disassemble --disassemble-zeroes --section=.text --section=.text.startup --section=.data
 # convert to VMH: 64KB memory
-RISCV_ELF2HEX := $(RISCV_TOOL_DIR)/elf2hex
+ELF2HEX_TOOL_DIR = /bsc-work/riscv-fesvr/build
+RISCV_ELF2HEX = $(ELF2HEX_TOOL_DIR)/elf2hex
 VMH_WIDTH := 8
 VMH_DEPTH := 65536
 
@@ -69,7 +71,7 @@ bmarks_riscv_vmh  := $(patsubst %,$(vmh_dir)/%.riscv.vmh,$(bmarks))
 $(bmarks_riscv_vmh): $(vmh_dir)/%.riscv.vmh: $(bin_dir)/%.riscv
 	@echo "@0" > $(vmh_dir)/temp
 	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $< >> $(vmh_dir)/temp
-	python $(bmarkdir)/../trans_vmh.py $(vmh_dir)/temp $@
+	python3 $(bmarkdir)/../trans_vmh.py $(vmh_dir)/temp $@
 
 $(bmarks_riscv_dump): $(dump_dir)/%.riscv.dump: $(bin_dir)/%.riscv
 	$(RISCV_OBJDUMP) $< > $@
