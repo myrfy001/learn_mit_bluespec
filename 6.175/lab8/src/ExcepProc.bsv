@@ -30,7 +30,7 @@ module mkProc(Proc);
 
         // decode
         // TODO: fill the second param.
-        DecodedInst dInst = decode(inst, True);
+        DecodedInst dInst = decode(inst, csrf.getMstatus()[2:1] == 2'b00);
 
         // trace - print the instruction
         $display("pc: %h inst: (%h) expanded: ", pc, inst, showInst(inst));
@@ -66,14 +66,30 @@ module mkProc(Proc);
 		else if(eInst.iType == Unsupported) begin
 			$display("Unsupported instruction. Trap");
 			// TODO: unsupported instruction exception
+            let curState = csrf.getMstatus();
+            let newState = (curState << 3);
+            newState[2:1] = 2'b11; // machine mode
+            newState[0] = 0;  // disable interrupt in new mode
+            csrf.startExcep(pc, excepUnsupport, newState);
+            pc <= csrf.getMtvec();
 		end
 		else if(eInst.iType == ECall) begin
 			$display("System call. Trap");
 			// TODO: system call exception
+            let curState = csrf.getMstatus();
+            let newState = (curState << 3);
+            newState[2:1] = 2'b11; // machine mode
+            newState[0] = 0;  // disable interrupt in new mode
+            csrf.startExcep(pc, excepUserECall, newState);
+            pc <= csrf.getMtvec();
 		end
 		else if(eInst.iType == ERet) begin
 			$display("ERET");
 			// TODO: return from exception
+            let curState = csrf.getMstatus();
+            let newState = (curState >> 3);
+            csrf.eret(newState);
+            pc <= csrf.getMepc();
 		end
 		else begin
 			// normal inst
