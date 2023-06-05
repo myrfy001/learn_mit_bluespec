@@ -82,10 +82,10 @@ _start:
   csrw mscratch, t0
 
   # HW init mstatus as: PRV0 = M, IE0 = 1; PRV1 = U, IE1 = 1
-  # eret should pop stack to set it to user mode
+  # mret should pop stack to set it to user mode
   la t0, _init
   csrw mepc, t0
-  eret
+  mret
 
 trap_entry: # exception handler
   # get pointer to local stack
@@ -178,7 +178,7 @@ trap_entry: # exception handler
   lw x2, 8(sp)
 
   # done, return
-  eret
+  mret
 
 
 .data

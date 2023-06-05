@@ -61,7 +61,7 @@ typedef Bit#(12) CsrIndx;
 CsrIndx csrInstret = 12'hc02;
 CsrIndx csrCycle   = 12'hc00;
 CsrIndx csrMhartid = 12'hf10;
-CsrIndx csrMcontext = 12'h780;
+CsrIndx csrMcontext = 12'h7a8;
 CsrIndx csrMstatus = 12'h300; // mstatus
 CsrIndx csrMtvec   = 12'h301; // mtvec
 CsrIndx csrMepc    = 12'h341; // mepc
@@ -199,7 +199,7 @@ Bit#(3) fnCSRRS  = 3'b010;
 //Bit#(3) fnCSRRCI = 3'b111;
 Bit#(3) fnPRIV   = 3'b000; // previleged inst: SCALL/ECALL, ERET
 Bit#(12) privECALL = 12'h000; // SCALL/ECALL
-Bit#(12) privERET  = 12'h100; // ERET
+Bit#(12) privMRET  = 12'h302; // ERET
 
 function Bool dataHazard(Maybe#(RIndx) src1, Maybe#(RIndx) src2, Maybe#(RIndx) dst);
     return (isValid(dst) && ((isValid(src1) && fromMaybe(?, dst)==fromMaybe(?, src1)) ||
@@ -329,7 +329,7 @@ function Fmt showInst(Instruction inst);
 				fnPRIV: begin
 					ret = case (truncate(immI))
 						privECALL: $format("ecall");
-						privERET: $format("eret");
+						privMRET: $format("mret");
 						default: $format("unsupport System PRIV 0x%0x", inst);
 					endcase;
 				end

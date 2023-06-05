@@ -236,7 +236,7 @@ function DecodedInst decode(Instruction inst, Bool inUserMode);
 						privECALL: begin
 							dInst.iType = ECall;
 						end
-						privERET: begin
+						privMRET: begin
 							// check not in user mode
 							if(inUserMode) begin
 								dInst.iType = NoPermission;

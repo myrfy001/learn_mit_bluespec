@@ -9,3 +9,5 @@ scemi/sim/scemi.params
 scemi/sim/logs/
 scemi/sim/*.vmh
 buildDir
+bluesim
+logs
