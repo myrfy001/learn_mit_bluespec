@@ -9,6 +9,7 @@ module mkMessageRouter(
   Empty ifc 
 );
 
+    Reg#(Bit#(TLog#(CoreNum))) lastHandledCore <- mkReg(0);
 
     rule doRoute;
         Bool haveC2RResp = False;
@@ -18,16 +19,19 @@ module mkMessageRouter(
         Bit#(TLog#(CoreNum)) respRdyIdx = 0;
         Bit#(TLog#(CoreNum)) reqRdyIdx = 0;
         
+        lastHandledCore <= lastHandledCore + 1;
 
-        for (Integer i=0; i < valueOf(CoreNum); i=i+1) begin
+        for (Integer _i=0; _i < valueOf(CoreNum); _i=_i+1) begin
+
+            Bit#(TLog#(CoreNum)) i = lastHandledCore + 1 + fromInteger(_i);
             
             if (c2r[i].hasResp && haveC2RResp == False) begin
-                respRdyIdx = fromInteger(i);
+                respRdyIdx = i;
                 haveC2RResp = True;
             end
             
             if (c2r[i].hasReq && haveC2RReq == False) begin
-                reqRdyIdx = fromInteger(i);
+                reqRdyIdx = i;
                 haveC2RReq = True;
             end
         end
