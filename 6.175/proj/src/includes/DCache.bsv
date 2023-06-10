@@ -57,7 +57,9 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
         CacheWordSelect wordIdx = getWordSelect(missReq.addr);
         if (missReq.op == Ld) begin
             respQ.enq(d[wordIdx]);
+            refDMem.commit(missReq, tagged Valid d, tagged Valid d[wordIdx]);
         end else if (missReq.op == St) begin
+            refDMem.commit(missReq, tagged Valid d, tagged Invalid);
             d[wordIdx] = missReq.data;
         end
         storage[lineIdx] <= d;
@@ -86,7 +88,7 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
         if (myCurInfo.msi > req.state) begin
 
             let data = myCurInfo.msi == M ? tagged Valid storage[lineIdx] : tagged Invalid;
-            toMem.enq_resp(CacheMemResp{child: id, addr: req.addr, state: req.state, data: data});
+            toMem.enq_resp(CacheMemResp{child: id, addr: address(myCurInfo.tag, lineIdx, 0), state: req.state, data: data});
 
             myCurInfo.msi = req.state;
             cli[lineIdx] <= myCurInfo;
@@ -96,6 +98,9 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
 
 
     method Action req(MemReq r) if (cacheState == Ready);
+
+        refDMem.issue(r);
+
         CacheIndex lineIdx = getIndex(r.addr);
         CacheWordSelect wordIdx = getWordSelect(r.addr);
 
@@ -106,6 +111,7 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
             if (r.op == Ld) begin
                 $display("op is load ========", fshow(cli[lineIdx]));
                 if (cli[lineIdx].msi > I) begin
+                    refDMem.commit(r, tagged Valid storage[lineIdx], tagged Valid storage[lineIdx][wordIdx]);
                     respQ.enq(storage[lineIdx][wordIdx]);
                 end else if (cli[lineIdx].msi == I) begin
                     cacheState <= SendFillReq;
@@ -114,7 +120,8 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
                 if (cli[lineIdx].msi == M) begin 
                     CacheLine line = storage[lineIdx];
                     line[wordIdx] = r.data;
-                    storage[lineIdx] <= line;
+                    storage[lineIdx] <= line; 
+                    refDMem.commit(r, tagged Valid storage[lineIdx], tagged Invalid);
                 end else begin
                     // now is S or I, need upgrade
                     cacheState <= SendFillReq;

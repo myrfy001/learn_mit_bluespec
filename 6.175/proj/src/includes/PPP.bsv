@@ -27,7 +27,7 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
     Reg#(UpgradeReqHandleStep) upReqStep <- mkReg(SendingDowngradeToOthers);
 
     rule doIncCycle;
-        $display("cycle %d =============================================", cycle);
+        $display("cycle %d  time %0t =============================================", cycle, $time);
         cycle <= cycle + 1;
     endrule
 
@@ -109,10 +109,10 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
         CacheTag tag = getTag(req.addr);
         CacheLineInfo info = cli[req.child][lineIdx];
 
-        $display("doDowngradeReqForAnyConflictChild req = ", fshow(req));
+        $display("%0t  doDowngradeReqForAnyConflictChild req = ", $time, fshow(req));
         let childToDowngrade = findChildToDowngrade(req);
 
-        $display("childToDowngrade req = ", fshow(childToDowngrade));
+        $display("%0t  childToDowngrade req = ", $time, fshow(childToDowngrade));
 
         if (childToDowngrade matches tagged Valid .reqToSend) begin
             m2c.enq_req(reqToSend);
@@ -132,7 +132,7 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
 
         Bool isAllCompatible = checkAllChildCompatibleWithUpgradeReq(req);
 
-        $display("isAllCompatible = ", isAllCompatible);
+        $display("%0t  isAllCompatible = ", $time, isAllCompatible);
 
         if (isAllCompatible) begin
 
@@ -153,7 +153,7 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
                 upReqStep <= SendingDowngradeToOthers;
             end else begin
                 mem.req(WideMemReq{write_en: 0, addr: address(tag, lineIdx, 0), data: ?});
-                $display("doDowngradeReqForAnyConflictChild read mem addr = ", address(tag, lineIdx, 0));
+                $display("%0t  doDowngradeReqForAnyConflictChild read mem addr = ", $time, address(tag, lineIdx, 0));
                 upReqStep <= WaitingReadFromBackendMemory;
             end
             
@@ -171,7 +171,7 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
 
         CacheLine data <- mem.resp;
 
-        $display("---->>>", mem.respValid ,fshow(data));
+        $display("%0t  ---->>>", $time, mem.respValid ,fshow(data));
 
         m2c.enq_resp(CacheMemResp{
             child: req.child,
@@ -179,7 +179,7 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
             state: req.state,
             data: tagged Valid data
         });
-        $display("doWaitBackendMemoryResponse origin req =", fshow(req), "read memory data =", fshow(data));
+        $display("%0t  doWaitBackendMemoryResponse origin req =", $time, fshow(req), "read memory data =", fshow(data));
         info.tag = getTag(req.addr);
         info.msi = req.state;
         info.waitingDowngrade = False;
@@ -193,7 +193,7 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
     rule doHandleDowngradeResp(c2m.hasResp &&& c2m.first matches tagged Resp .resp);
         c2m.deq;
 
-        $display("doHandleDowngradeResp origin resp =", fshow(resp));
+        $display("%0t  doHandleDowngradeResp origin resp =", $time, fshow(resp));
 
         CacheTag tag = getTag(resp.addr);
         CacheIndex lineIdx = getIndex(resp.addr);
@@ -204,7 +204,7 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
         info.tag = tag;
         if (resp.data matches tagged Valid .d) begin
             mem.req(WideMemReq{write_en: 16'b1111_1111_1111_1111, addr: address(tag, lineIdx, 0), data: d});
-            $display("doHandleDowngradeResp write addr = ", address(tag, lineIdx, 0), " data =", fshow(d));
+            $display("%0t  doHandleDowngradeResp write addr = ", $time, address(tag, lineIdx, 0), " data =", fshow(d));
         end
 
         cli[resp.child][lineIdx] <= info;

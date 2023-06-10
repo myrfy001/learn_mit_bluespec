@@ -16,15 +16,18 @@ module mkMessageRouter(
         let haveM2RReq = m2r.hasReq;
         Bit#(TLog#(CoreNum)) respRdyIdx = 0;
         Bit#(TLog#(CoreNum)) reqRdyIdx = 0;
+        
 
         for (Integer i=0; i < valueOf(CoreNum); i=i+1) begin
-            haveC2RResp = haveC2RResp || c2r[i].hasResp;
-            if (c2r[i].hasResp) begin
+            
+            if (c2r[i].hasResp && haveC2RResp == False) begin
                 respRdyIdx = fromInteger(i);
+                haveC2RResp = True;
             end
-            haveC2RReq = haveC2RReq || c2r[i].hasReq;
-            if (c2r[i].hasReq) begin
+            
+            if (c2r[i].hasReq && haveC2RReq == False) begin
                 reqRdyIdx = fromInteger(i);
+                haveC2RReq = True;
             end
         end
 
