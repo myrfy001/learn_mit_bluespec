@@ -38,7 +38,7 @@ rv32ui_tests = \
 # Build rules
 #--------------------------------------------------------------------
 
-RISCV_TOOL_DIR = $(abspath ../../../../riscv/bin)
+RISCV_TOOL_DIR = /bsc-work/riscv32-unknown-elf/bin
 RISCV_PREFIX = $(RISCV_TOOL_DIR)/riscv32-unknown-elf
 # gcc
 RISCV_GCC = $(RISCV_PREFIX)-gcc
@@ -51,7 +51,7 @@ RISCV_LINK_OPTS = -T$(asmdir)/link.ld
 # objdump
 RISCV_OBJDUMP = $(RISCV_PREFIX)-objdump --disassemble --disassemble-zeroes --section=.text --section=.text.startup --section=.data
 # convert to VMH: 64KB memory
-ELF2HEX_TOOL_DIR = /home/hengyu/tools/rv_tools/bin
+ELF2HEX_TOOL_DIR = /bsc-work/riscv-fesvr/build
 RISCV_ELF2HEX = $(ELF2HEX_TOOL_DIR)/elf2hex
 VMH_WIDTH = 8
 VMH_DEPTH = 65536
@@ -77,7 +77,7 @@ $(rv32ui_tests_vmh): %.riscv.vmh: %.riscv
 	@echo "@0" > $(asm_build_vmh_dir)/temp
 	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $(asm_build_bin_dir)/$< >> $(asm_build_vmh_dir)/temp
 	# $(RISCV_ELF2HEX) --bit-width $(VMH_WIDTH) --input $< >> $(asm_build_vmh_dir)/temp
-	python $(asmdir)/../trans_vmh.py $(asm_build_vmh_dir)/temp $(asm_build_vmh_dir)/$@
+	python3 $(asmdir)/../trans_vmh.py $(asm_build_vmh_dir)/temp $(asm_build_vmh_dir)/$@
 
 
 $(rv32ui_tests_dump): %.riscv.dump: %.riscv
