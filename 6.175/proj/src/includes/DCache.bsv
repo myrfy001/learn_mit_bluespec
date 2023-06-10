@@ -6,7 +6,7 @@ import RefTypes::*;
 import MemTypes::*;
 
 typedef enum{Ready, StartMiss, SendFillReq, WaitFillResp, Resp} CacheStatus
-    deriving(Eq, Bits);
+    deriving(Eq, Bits, FShow);
 
 typedef struct {
     CacheTag tag;
@@ -27,7 +27,13 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
         return {tag, index, sel, 0};
     endfunction
 
+    rule doDebug;
+        $display("%0t  DCache@core %d cacheState = ", $time, id, fshow(cacheState), " fromMem.hasResp=", fromMem.hasResp , " fromMem.hasReq=", fromMem.hasReq );
+    endrule
+
     rule doStartMiss (cacheState == StartMiss);
+        $display("%0t  DCache@core %d doStartMiss:", $time, id);
+
         CacheIndex lineIdx = getIndex(missReq.addr);
         CacheWordSelect wordIdx = getWordSelect(missReq.addr);
         
@@ -43,6 +49,7 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
 
 
     rule doSendFillReq (cacheState == SendFillReq);
+        $display("%0t  DCache@core %d doSendFillReq:", $time, id);
         toMem.enq_req(CacheMemReq{child: id, addr: missReq.addr, state: missReq.op == St ? M : S});
         cacheState <= WaitFillResp;
     endrule
@@ -50,6 +57,7 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
     rule doWaitFillResp (cacheState == WaitFillResp && fromMem.hasResp);
         CacheIndex lineIdx = getIndex(missReq.addr);
         CacheMemResp resp = fromMem.first.Resp;
+        $display("%0t  DCache@core %d doWaitFillResp:", $time, id, fshow(resp));
         fromMem.deq;
 
         CacheLine d = isValid(resp.data) ? fromMaybe(?, resp.data) : storage[lineIdx];
@@ -80,6 +88,7 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
 
     rule doHandleDowngrade (fromMem.hasReq);
         CacheMemReq req = fromMem.first.Req;
+        $display("%0t  DCache@core %d receive downgrade req:", $time, id, fshow(req));
         fromMem.deq;
 
         CacheIndex lineIdx =  getIndex(req.addr);

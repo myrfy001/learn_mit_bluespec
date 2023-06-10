@@ -116,6 +116,8 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
 
         if (childToDowngrade matches tagged Valid .reqToSend) begin
             m2c.enq_req(reqToSend);
+            $display("%0t  ppp enqueue req = ", $time, fshow(reqToSend));
+
             CacheLineInfo childInfo = cli[reqToSend.child][lineIdx];
             childInfo.waitingDowngrade = True;
             cli[reqToSend.child][lineIdx] <= childInfo;
@@ -139,12 +141,15 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
             // if we don't need to read from backend memory, we can save time.
             if (req.state == I || (req.state == M && info.msi == S)) begin
                 c2m.deq;
-                m2c.enq_resp(CacheMemResp{
+                let t = CacheMemResp{
                     child: req.child,
                     addr: req.addr,
                     state: req.state,
                     data: tagged Invalid
-                });
+                };
+                m2c.enq_resp(t);
+
+                $display("%0t  ppp enqueue resp = ", $time, fshow(t));
 
                 info.tag = tag;
                 info.msi = req.state;
@@ -170,8 +175,6 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
         CacheLineInfo info = cli[req.child][lineIdx];
 
         CacheLine data <- mem.resp;
-
-        $display("%0t  ---->>>", $time, mem.respValid ,fshow(data));
 
         m2c.enq_resp(CacheMemResp{
             child: req.child,

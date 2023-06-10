@@ -9,6 +9,7 @@ module mkMessageRouter(
   Empty ifc 
 );
 
+
     rule doRoute;
         Bool haveC2RResp = False;
         Bool haveC2RReq = False;
@@ -31,21 +32,31 @@ module mkMessageRouter(
             end
         end
 
-        if (haveC2RResp) begin 
+        $display("%0t  Router haveC2RResp = %d, respRdyIdx = %d, haveC2RReq = %d, reqRdyIdx = %d, haveM2RResp = %d, haveM2RReq = %d", 
+                  $time, haveC2RResp, respRdyIdx, haveC2RReq, reqRdyIdx, haveM2RResp, haveM2RReq);
+
+        if (haveC2RResp) begin
             r2m.enq_resp(c2r[respRdyIdx].first.Resp);
             c2r[respRdyIdx].deq;
+            $display("%0t  Router send resp from core %d to mem  ", $time, respRdyIdx, fshow(c2r[respRdyIdx].first.Resp));
         end else if (haveM2RResp) begin 
             let rsp = m2r.first.Resp;
             m2r.deq;
             r2c[rsp.child].enq_resp(rsp);
-        end else if (haveC2RReq) begin 
-            r2m.enq_req(c2r[reqRdyIdx].first.Req);
-            c2r[reqRdyIdx].deq;
-        end else if (haveM2RReq) begin
+            $display("%0t  Router send resp from mem to core %d  ", $time, rsp.child, fshow(rsp));
+        end else if (haveM2RReq) begin  
+            // handle haveM2RReq before haveC2RReq, because haveC2RReq is more busy than haveM2RReq. 
+            // Let item leave from PPP first to make room for item to go into PPP
+            // This can avoid deadlock when haveC2RReq is Full and new item can't go into PPP
             let req = m2r.first.Req;
             m2r.deq;
             r2c[req.child].enq_req(req);
-        end
+            $display("%0t  Router send req from mem to core %d  ", $time, req.child, fshow(req));
+        end else if (haveC2RReq) begin 
+            r2m.enq_req(c2r[reqRdyIdx].first.Req);
+            c2r[reqRdyIdx].deq;
+            $display("%0t  Router send req from core %d to mem  ", $time, reqRdyIdx, fshow(c2r[reqRdyIdx].first.Req));
+        end 
 
     endrule
 
