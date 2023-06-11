@@ -22,7 +22,11 @@
 
 // This is the number of discs in the puzzle.
 
+#ifdef LARGE_DATA
+#define NUM_DISCS 17
+#else
 #define NUM_DISCS  7
+#endif
 
 //--------------------------------------------------------------------------
 // List data structure and functions

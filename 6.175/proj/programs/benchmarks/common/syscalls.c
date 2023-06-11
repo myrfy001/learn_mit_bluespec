@@ -64,10 +64,6 @@ void toHostExit(uint32_t ret) {
 	while(1);
 }
 
-long handle_trap(long cause, long epc, long regs[32]) {
-  return epc+4;
-}
-
 int __attribute__((weak)) main(int argc, char** argv) {
   // single-threaded programs override this function.
   printStr("Implement main(), foo!\n");
