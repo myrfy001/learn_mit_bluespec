@@ -66,13 +66,6 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
                             addr: req.addr,
                             state: req.state == M ? I : S
                         };
-                    end else if (inDirectory == False && curInfo.msi != I) begin
-                        // In this case, must be Invalid.
-                        downReq = tagged Valid CacheMemReq {
-                            child: fromInteger(coreId),
-                            addr: req.addr,
-                            state: I
-                        };
                     end
                 end
             end
@@ -94,7 +87,7 @@ module mkPPP(MessageGet c2m, MessagePut m2c, WideMem mem, Empty ifc);
                 Bool inDirectory = isInDirectory(fromInteger(coreId), req.addr);
                 CacheLineInfo curInfo = cli[coreId][lineId];
 
-                if ((inDirectory == False && curInfo.msi != I) || ( inDirectory && (isCompatible(curInfo.msi, req.state) == False))) begin
+                if ( inDirectory && (isCompatible(curInfo.msi, req.state) == False)) begin
                     ok = False;
                 end
                 
