@@ -27,9 +27,9 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
         return {tag, index, sel, 0};
     endfunction
 
-    rule doDebug;
-        $display("%0t  DCache@core %d cacheState = ", $time, id, fshow(cacheState), " fromMem.hasResp=", fromMem.hasResp , " fromMem.hasReq=", fromMem.hasReq );
-    endrule
+    // rule doDebug;
+    //     $display("%0t  DCache@core %d cacheState = ", $time, id, fshow(cacheState), " fromMem.hasResp=", fromMem.hasResp , " fromMem.hasReq=", fromMem.hasReq );
+    // endrule
 
     rule doStartMiss (cacheState == StartMiss);
         $display("%0t  DCache@core %d doStartMiss:", $time, id);
@@ -109,6 +109,7 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
     method Action req(MemReq r) if (cacheState == Ready);
 
         refDMem.issue(r);
+        $display("%0t  DCache@core %d receive req from cpu:", $time, id, fshow(r));
 
         CacheIndex lineIdx = getIndex(r.addr);
         CacheWordSelect wordIdx = getWordSelect(r.addr);
@@ -116,9 +117,8 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
         missReq <= r;
         
         if (cli[lineIdx].tag == getTag(r.addr)) begin
-            $display("hit========");
+            $display("%0t  DCache@core %d hit========", $time, id, fshow(cli[lineIdx]));
             if (r.op == Ld) begin
-                $display("op is load ========", fshow(cli[lineIdx]));
                 if (cli[lineIdx].msi > I) begin
                     refDMem.commit(r, tagged Valid storage[lineIdx], tagged Valid storage[lineIdx][wordIdx]);
                     respQ.enq(storage[lineIdx][wordIdx]);
@@ -146,6 +146,7 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
     endmethod
 
     method ActionValue#(MemResp) resp;
+        $display("%0t  DCache@core %d send resp to cpu:", $time, id, fshow(respQ.first));
         respQ.deq;
         return respQ.first;
     endmethod

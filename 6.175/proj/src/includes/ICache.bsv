@@ -1,196 +1,130 @@
 import CacheTypes::*;
+import Types::*;
+import ProcTypes::*;
 import Fifo::*;
+import Vector::*;
 import MemTypes::*;
 import MemUtil::*;
-import Vector::*;
-import Types::*;
-import Ehr::*;
-
-typedef struct {
-    Bool valid;
-    Bool dirty;
-    CacheTag tag;
-    CacheLine data;
-} CacheEntry deriving(Bits);
-
-typedef struct {
-    CacheTag tag;
-    CacheIndex idx;
-    CacheWordSelect wordIdx;
-    Bit#(2) _padding;
-} CacheAddr deriving(Bits, FShow);
+import SimMem::*;
 
 
-typedef enum {
-    Idle,
-    SendWriteReq,
-    WaitWriteResp,
-    SendReadReq,
-    WaitReadResp
-} CacheState deriving (Bits, Eq);
+typedef enum{Ready, StartMiss, SendFillReq, WaitFillResp} CacheStatus 
+    deriving(Eq, Bits);
+module mkICache(WideMem mem, ICache ifc);
+
+    // Track the cache state
+    Reg#(CacheStatus) status <- mkReg(Ready);
+
+    // The cache memory
+    Vector#(CacheRows, Reg#(CacheLine)) dataArray <- replicateM(mkRegU);
+    Vector#(CacheRows, Reg#(Maybe#(CacheTag))) 
+            tagArray <- replicateM(mkReg(Invalid));
+    Vector#(CacheRows, Reg#(Bool)) dirtyArray <- replicateM(mkReg(False));
+
+    // Book keeping
+    Fifo#(2, Data) hitQ <- mkBypassFifo;
+    Reg#(Addr) missAddr <- mkRegU;
+    Fifo#(2, MemReq) memReqQ <- mkCFFifo;
+    Fifo#(2, CacheLine) memRespQ <- mkCFFifo;
 
 
-// =========================================
+    function CacheWordSelect getWord(Addr addr) = truncate(addr >> 2);
+    function CacheIndex getIndex(Addr addr) = truncate(addr >> 6);
+    function CacheTag getTag(Addr addr) = truncateLSB(addr);
+
+    rule sendFillReq (status == StartMiss);
+
+        memReqQ.enq(MemReq {op: Ld, addr: missAddr, data:?});
+        status <= WaitFillResp;
+
+    endrule
 
 
-module mkCache(WideMem backend, Cache ifc);
-    Fifo#(1, MemResp) respQ <- mkBypassFifo();
-
-    Reg#(CacheState) state <- mkReg(Idle);
-    Reg#(MemReq) curReq <- mkRegU;
-
-    Vector#(CacheRows, Reg#(CacheEntry)) storage <- replicateM(mkReg(CacheEntry{
-        valid: False,
-        dirty: False,
-        tag: ?,
-        data: ?
-    }));
-
-
-    function Bool isCacheHit(Addr addr, CacheEntry entry);
-            CacheAddr caddr = unpack(pack(addr));
-
-            let ret = False;
-            if (entry.valid) begin
-                ret = (caddr.tag == entry.tag) ? True : False;
-            end
-            return ret;
-    endfunction
-
-    function Addr getCacheLineAlignedAddress(Addr addr);
-        CacheAddr caddr = unpack(pack(addr));
-        caddr._padding = 0;
-        caddr.wordIdx = 0;
-        return unpack(pack(caddr));
-    endfunction
-
-    rule doWriteBack (state == SendWriteReq);
+    rule waitFillResp (status == WaitFillResp);
         
-        // $display("[Cache] doWriteBack");
+        // calculate cache index and tag
+        CacheWordSelect sel = getWord(missAddr);
+        CacheIndex idx = getIndex(missAddr);
+        let tag = getTag(missAddr);
+        
+        // set cache line with data
+        let line = memRespQ.first;
+        tagArray[idx] <= Valid(tag);
+        
+        // enqueue result into hit queue
+        hitQ.enq(line[sel]);
+        dataArray[idx] <= line;
+        
+        // dequeue response queue
+        memRespQ.deq;
 
-        CacheAddr caddr = unpack(pack(curReq.addr));
-
-        let entry = storage[caddr.idx];
-
-        CacheAddr waddr = CacheAddr {
-            tag: entry.tag,
-            idx: caddr.idx,
-            wordIdx: 0,
-            _padding: 0
-        };
-
-        let req = WideMemReq {
-            write_en: 16'b1111_1111_1111_1111,
-            addr: getCacheLineAlignedAddress(pack(waddr)),
-            data: entry.data
-        };
-        backend.req(req);
-        state <= WaitWriteResp;
-    endrule
-
-    rule doWaitWriteResp (state == WaitWriteResp);
-        // $display("[Cache] doWaitWriteResp");
-        state <= SendReadReq;
-    endrule
-
-    rule doSendReadReq (state == SendReadReq);
-        // $display("[Cache] doSendReadReq");
-        let req = WideMemReq {
-            write_en: 0,
-            addr: getCacheLineAlignedAddress(curReq.addr),
-            data: ?
-        };
-        backend.req(req);
-        state <= WaitReadResp;
+        // reset status
+        status <= Ready;
     endrule
 
 
+    rule sendToMemory;
+
+        // dequeue to get DRAM request
+        memReqQ.deq;
+        let r = memReqQ.first;
+
+        // translate data to cache line
+        CacheIndex idx = getIndex(r.addr);
+        CacheLine line = dataArray[idx];
+        
+        // create enable signal
+        Bit#(CacheLineWords) en;
+        if (r.op == St) en = '1;
+        else en = '0; 
+
+        mem.req(WideMemReq{
+            write_en: en,
+            addr: r.addr,
+            data: line
+        } );
+
+    endrule
+
+
+    rule getFromMemory;
+
+        // get DRAM response
+        let line <- mem.resp();
+        memRespQ.enq(line);
     
-    rule doWaitReadResp (state == WaitReadResp);
+    endrule
 
-        CacheAddr caddr = unpack(pack(curReq.addr));
 
-        // $display("[Cache] doWaitReadResp caddr=");
-  
-        let resp <- backend.resp;
+    method Action req(Addr a) if (status == Ready);
+    
+        // calculate cache index and tag
+        CacheWordSelect sel = getWord(a);
+        CacheIndex idx = getIndex(a);
+        CacheTag tag = getTag(a);
 
-        let entry = CacheEntry {
-            valid: True,
-            dirty: False,
-            tag: caddr.tag,
-            data: resp
-        };
+        // check if in cache
+        let hit = False;
+        if (tagArray[idx] matches tagged Valid .currTag 
+            &&& currTag == tag) hit = True;
 
-        if (curReq.op == Ld) begin
-            // $display("[Cache] doWaitReadResp -- Ld");
-            respQ.enq(selectWord(pack(resp), caddr.wordIdx));
-        end else begin
-            // $display("[Cache] doWaitReadResp -- St");
-            entry.data[caddr.wordIdx] = curReq.data;
-            entry.dirty = True;
+        // check load
+        if (hit) begin
+            hitQ.enq(dataArray[idx][sel]);
         end
-
-        storage[caddr.idx] <= entry;
-        state <= Idle;
-    endrule 
-
-
-    method Action req(MemReq r) if (state == Idle);
-
-        CacheAddr caddr = unpack(pack(r.addr));
-        CacheEntry entry = storage[caddr.idx];
-
-        // $display("[Cache] Get addr = ", fshow(caddr));
-
-        if (isCacheHit(r.addr, entry)) begin
-            // Cache hit
-            if (r.op == Ld) begin
-                // $display("[Cache] -- Ld Hit");
-                respQ.enq(selectWord(pack(entry.data), caddr.wordIdx));
-            end else begin
-                // $display("[Cache] -- St Hit");
-                entry.data[caddr.wordIdx] = r.data;
-                entry.dirty = True;
-                storage[caddr.idx] <= entry;
-            end
-        end else begin
-            // Cache miss
-            curReq <= r;
-            if (entry.dirty == False) begin
-                // $display("[Cache] Will SendReadReq on next cycle");
-                state <= SendReadReq;
-            end else begin
-                // $display("[Cache] Will SendWriteReq on next cycle");
-                state <= SendWriteReq;
-            end
+        else begin
+            missAddr <= a;
+            status <= StartMiss;
         end
     endmethod
 
-    method ActionValue#(MemResp) resp; 
-        // $display("[Cache] deq...");       
-        respQ.deq;
-        return respQ.first;
+
+    method ActionValue#(Data) resp;
+        hitQ.deq;
+        return hitQ.first;
     endmethod
+
+
 endmodule
 
 
-
-
-
-module mkTranslator(WideMem backend, Cache ifc);
-    Fifo#(2, MemReq) originReq <- mkCFFifo();
-
-    method Action req(MemReq r);
-        originReq.enq(r);
-        backend.req(toWideMemReq(r));
-    endmethod
-
-    method ActionValue#(MemResp) resp;
-        let rsp <- backend.resp;
-        let oreq = originReq.first;
-        originReq.deq;
-
-        CacheWordSelect wordsel = truncate( oreq.addr >> 2 );
-        return rsp[wordsel];
-    endmethod
-endmodule

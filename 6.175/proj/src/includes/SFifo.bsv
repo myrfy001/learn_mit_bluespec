@@ -187,6 +187,7 @@ module mkCFSFifo( function Bool isFound(dt x, st y), SFifo#(n, dt, st) ifc ) pro
 			end
 			if(deqEn[2]) begin
 				deqP_nxt = nextPtr(deqP);
+                $display("Sfifo deq val = %x", data[deqP]);
 			end
 			enqP <= enqP_nxt;
 			deqP <= deqP_nxt;

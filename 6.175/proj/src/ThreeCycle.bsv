@@ -51,6 +51,7 @@ module mkCore#(CoreID id)(
     rule doExecute if (csrf.started && stage == Execute);
         let   inst <- iCache.resp;
         let  dInst = decode(inst);
+        $display("Core %d decode ", id, fshow(dInst));
         let  rVal1 = rf.rd1(validValue(dInst.src1));
         let  rVal2 = rf.rd2(validValue(dInst.src2));
         let csrVal = csrf.rd(validValue(dInst.csr));
@@ -64,11 +65,13 @@ module mkCore#(CoreID id)(
                 let rid <- memReqIDGen.getID;
                 let req = MemReq { op: Ld, addr: eInst.addr, data: ?, rid: rid };
                 dCache.req(req);
+                $display("Core %d decode dcache req", id, fshow(req));
             end
             St: begin
                 let rid <- memReqIDGen.getID;
                 let req = MemReq { op: St, addr: eInst.addr, data: eInst.data, rid: rid };
                 dCache.req(req);
+                $display("Core %d decode dcache req", id, fshow(req));
             end
             Lr: begin
                 let rid <- memReqIDGen.getID;
@@ -95,8 +98,10 @@ module mkCore#(CoreID id)(
     rule doCommit if (csrf.started && stage == Commit);
         let eInst = e2c;
 		let willPrint = fromMaybe(?, eInst.csr) != csrMtohost || (fromMaybe(?, eInst.csr) == csrMtohost && id == 0);
+        $display("Core %d commit ", id, fshow(eInst));
         if (eInst.iType == Ld || eInst.iType == Lr || eInst.iType == Sc) begin
             eInst.data <- dCache.resp;
+            $display("Core %d get dcache ", id, fshow(eInst.data));
         end
         if (isValid(eInst.dst)) begin
             rf.wr(fromMaybe(?, eInst.dst), eInst.data);

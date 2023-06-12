@@ -36,8 +36,8 @@ module mkMessageRouter(
             end
         end
 
-        $display("%0t  Router haveC2RResp = %d, respRdyIdx = %d, haveC2RReq = %d, reqRdyIdx = %d, haveM2RResp = %d, haveM2RReq = %d", 
-                  $time, haveC2RResp, respRdyIdx, haveC2RReq, reqRdyIdx, haveM2RResp, haveM2RReq);
+        // $display("%0t  Router haveC2RResp = %d, respRdyIdx = %d, haveC2RReq = %d, reqRdyIdx = %d, haveM2RResp = %d, haveM2RReq = %d", 
+        //           $time, haveC2RResp, respRdyIdx, haveC2RReq, reqRdyIdx, haveM2RResp, haveM2RReq);
 
         if (haveC2RResp) begin
             r2m.enq_resp(c2r[respRdyIdx].first.Resp);
