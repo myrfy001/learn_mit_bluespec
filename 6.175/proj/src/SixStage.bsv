@@ -445,6 +445,7 @@ module mkCore#(CoreID id)(
         cycle <= 0;
     endmethod
 
+    // This line block me for a whole day.
     method Bool cpuToHostValid = csrf.cpuToHostValid;
 endmodule
 
