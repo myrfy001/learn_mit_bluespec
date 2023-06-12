@@ -141,6 +141,9 @@ module mkCore#(CoreID id)(
 
     Reg#(Bit#(32)) cycle <- mkReg(0);
 
+    rule doDebug;
+        $display("%0t  DCache@core %d sendRespQ notFull = %d", $time, id, toParentQ.respNotFull);
+    endrule
 
 	rule doFetch(csrf.started);
 		iMem.req(pcReg[0]);
