@@ -38,7 +38,11 @@ module mkCsrFile#(CoreID id)(CsrFile);
 
     rule count (startReg);
         cycles <= cycles + 1;
-        $display("\n%0t: Cycle %d ----------------------------------------------------", $time, cycles);
+        // $display("\n%0t: Cycle %d ----------------------------------------------------", $time, cycles);
+    endrule
+
+    rule debugFifo(toHostFifo.notFull==False);
+        $display("========toHostFifo Full");
     endrule
 
     method Action start if(!startReg);

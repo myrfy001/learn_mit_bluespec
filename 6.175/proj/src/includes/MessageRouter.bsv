@@ -19,11 +19,16 @@ module mkMessageRouter(
         Bit#(TLog#(CoreNum)) respRdyIdx = 0;
         Bit#(TLog#(CoreNum)) reqRdyIdx = 0;
         
-        lastHandledCore <= lastHandledCore + 1;
+        if (lastHandledCore < fromInteger(valueOf(CoreNum)-1)) begin
+            lastHandledCore <= lastHandledCore + 1;
+        end else begin 
+            lastHandledCore <= 0;
+        end
+        
 
         for (Integer _i=0; _i < valueOf(CoreNum); _i=_i+1) begin
 
-            Bit#(TLog#(CoreNum)) i = lastHandledCore + 1 + fromInteger(_i);
+            Bit#(TLog#(CoreNum)) i = lastHandledCore + fromInteger(_i);
             
             if (c2r[i].hasResp && haveC2RResp == False) begin
                 respRdyIdx = i;
@@ -36,8 +41,8 @@ module mkMessageRouter(
             end
         end
 
-        // $display("%0t  Router haveC2RResp = %d, respRdyIdx = %d, haveC2RReq = %d, reqRdyIdx = %d, haveM2RResp = %d, haveM2RReq = %d", 
-        //           $time, haveC2RResp, respRdyIdx, haveC2RReq, reqRdyIdx, haveM2RResp, haveM2RReq);
+        $display("%0t  Router haveC2RResp = %d, respRdyIdx = %d, haveC2RReq = %d, reqRdyIdx = %d, haveM2RResp = %d, haveM2RReq = %d", 
+                  $time, haveC2RResp, respRdyIdx, haveC2RReq, reqRdyIdx, haveM2RResp, haveM2RReq);
 
         if (haveC2RResp) begin
             r2m.enq_resp(c2r[respRdyIdx].first.Resp);

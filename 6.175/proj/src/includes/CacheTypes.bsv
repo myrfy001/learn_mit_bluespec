@@ -131,6 +131,7 @@ interface MessageFifo#( numeric type n );
     method Bool hasResp;
     method Bool hasReq;
     method Bool notEmpty;
+    method Bool respNotFull;
     method CacheMemMessage first;
     method Action deq;
 endinterface

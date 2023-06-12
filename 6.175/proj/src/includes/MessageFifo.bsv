@@ -6,7 +6,7 @@ module mkMessageFifo(MessageFifo#(n));
     Fifo#(n, CacheMemReq) reqFifo <- mkCFFifo;
     Fifo#(n, CacheMemResp) respFifo <- mkCFFifo;
 
-
+    method Bool respNotFull = respFifo.notFull;
 
     method Action enq_resp(CacheMemResp d);
         respFifo.enq(d);

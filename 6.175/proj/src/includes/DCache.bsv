@@ -22,14 +22,15 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
     Reg#(MemReq) missReq <- mkRegU;
 
     Fifo#(2, MemResp) respQ <- mkBypassFifo;
+    Fifo#(2, MemReq) reqQ <- mkCFFifo;
 
     function Addr address( CacheTag tag, CacheIndex index, CacheWordSelect sel );
         return {tag, index, sel, 0};
     endfunction
 
-    // rule doDebug;
-    //     $display("%0t  DCache@core %d cacheState = ", $time, id, fshow(cacheState), " fromMem.hasResp=", fromMem.hasResp , " fromMem.hasReq=", fromMem.hasReq );
-    // endrule
+    rule doDebug;
+        $display("%0t  DCache@core %d cacheState = ", $time, id, fshow(cacheState), " fromMem.hasResp=", fromMem.hasResp , " fromMem.hasReq=", fromMem.hasReq );
+    endrule
 
     rule doStartMiss (cacheState == StartMiss);
         $display("%0t  DCache@core %d doStartMiss:", $time, id);
@@ -85,32 +86,12 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
         cacheState <= Ready;
     endrule
 
+    rule doReady (cacheState == Ready);
 
-    rule doHandleDowngrade (fromMem.hasReq);
-        CacheMemReq req = fromMem.first.Req;
-        $display("%0t  DCache@core %d receive downgrade req:", $time, id, fshow(req));
-        fromMem.deq;
-
-        CacheIndex lineIdx =  getIndex(req.addr);
-        CacheLineInfo myCurInfo = cli[lineIdx];
-
-        if (myCurInfo.msi > req.state) begin
-
-            let data = myCurInfo.msi == M ? tagged Valid storage[lineIdx] : tagged Invalid;
-            toMem.enq_resp(CacheMemResp{child: id, addr: address(myCurInfo.tag, lineIdx, 0), state: req.state, data: data});
-
-            myCurInfo.msi = req.state;
-            cli[lineIdx] <= myCurInfo;
-        end
-    endrule
-
-
-
-    method Action req(MemReq r) if (cacheState == Ready);
+        let r = reqQ.first;
+        reqQ.deq;
 
         refDMem.issue(r);
-        $display("%0t  DCache@core %d receive req from cpu:", $time, id, fshow(r));
-
         CacheIndex lineIdx = getIndex(r.addr);
         CacheWordSelect wordIdx = getWordSelect(r.addr);
 
@@ -143,6 +124,30 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
                 cacheState <= StartMiss;
             end
         end
+    endrule
+
+    rule doHandleDowngrade (fromMem.hasReq &&& fromMem.first matches tagged Req .req);
+        $display("%0t  DCache@core %d receive downgrade req:", $time, id, fshow(req));
+        fromMem.deq;
+
+        CacheIndex lineIdx =  getIndex(req.addr);
+        CacheLineInfo myCurInfo = cli[lineIdx];
+
+        if (myCurInfo.msi > req.state) begin
+
+            let data = myCurInfo.msi == M ? tagged Valid storage[lineIdx] : tagged Invalid;
+            toMem.enq_resp(CacheMemResp{child: id, addr: address(myCurInfo.tag, lineIdx, 0), state: req.state, data: data});
+
+            myCurInfo.msi = req.state;
+            cli[lineIdx] <= myCurInfo;
+        end
+    endrule
+
+
+
+    method Action req(MemReq r);
+        $display("%0t  DCache@core %d receive req from cpu:", $time, id, fshow(r));
+        reqQ.enq(r);
     endmethod
 
     method ActionValue#(MemResp) resp;
