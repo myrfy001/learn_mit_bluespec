@@ -339,9 +339,9 @@ module mkCore#(CoreID id)(
 
     endrule
 
-    rule debugMmeory(csrf.started);
-        $display("[%d] core %d Memory stage waiting to deq =", cycle, id, fshow(e2mFifo.first));
-    endrule
+    // rule debugMmeory(csrf.started);
+    //     $display("[%d] core %d Memory stage waiting to deq =", cycle, id, fshow(e2mFifo.first));
+    // endrule
 
     rule doMemory(csrf.started);
 
@@ -353,13 +353,28 @@ module mkCore#(CoreID id)(
             $display("[%d] core %d Memory: PC = %x", cycle, id, e2m.pc);
 
             // memory
-            if(eInst.iType == Ld) begin
-                let rid <- memReqIDGen.getID;
-                dMem.req(MemReq{op: Ld, addr: eInst.addr, data: ?, rid: rid});
-            end else if(eInst.iType == St) begin
-                let rid <- memReqIDGen.getID;
-                dMem.req(MemReq{op: St, addr: eInst.addr, data: eInst.data, rid: rid});
-            end
+            case (eInst.iType) 
+                Ld: begin
+                    let rid <- memReqIDGen.getID;
+                    dMem.req(MemReq{op: Ld, addr: eInst.addr, data: ?, rid: rid});
+                end
+                St: begin
+                    let rid <- memReqIDGen.getID;
+                    dMem.req(MemReq{op: St, addr: eInst.addr, data: eInst.data, rid: rid});
+                end
+                Lr: begin
+                    let rid <- memReqIDGen.getID;
+                    dMem.req(MemReq{op: Lr, addr: eInst.addr, data: eInst.data, rid: rid});
+                end
+                Sc: begin
+                    let rid <- memReqIDGen.getID;
+                    dMem.req(MemReq{op: Sc, addr: eInst.addr, data: eInst.data, rid: rid});
+                end
+                Fence: begin
+                    let rid <- memReqIDGen.getID;
+                    dMem.req(MemReq{op: Fence, addr: eInst.addr, data: eInst.data, rid: rid});
+                end
+            endcase
 
             Memory2WriteBack m2w = Memory2WriteBack {
                 pc: e2m.pc,
@@ -389,7 +404,7 @@ module mkCore#(CoreID id)(
         if (m2w_maybe matches tagged Valid .m2w) begin
             let eInst = m2w.eInst;
 
-            if(eInst.iType == Ld) begin
+            if(eInst.iType == Ld || eInst.iType == Lr || eInst.iType == Sc) begin
                 eInst.data <- dMem.resp;
             end
 

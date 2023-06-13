@@ -51,7 +51,7 @@ module mkCore#(CoreID id)(
     rule doExecute if (csrf.started && stage == Execute);
         let   inst <- iCache.resp;
         let  dInst = decode(inst);
-        $display("Core %d decode ", id, fshow(dInst));
+        $display("Core %d decode PC=%x", id, pc,fshow(dInst));
         let  rVal1 = rf.rd1(validValue(dInst.src1));
         let  rVal2 = rf.rd2(validValue(dInst.src2));
         let csrVal = csrf.rd(validValue(dInst.csr));
@@ -98,7 +98,7 @@ module mkCore#(CoreID id)(
     rule doCommit if (csrf.started && stage == Commit);
         let eInst = e2c;
 		let willPrint = fromMaybe(?, eInst.csr) != csrMtohost || (fromMaybe(?, eInst.csr) == csrMtohost && id == 0);
-        $display("Core %d commit ", id, fshow(eInst));
+        $display("Core %d commit @ PC=%x", id, pc, fshow(eInst));
         if (eInst.iType == Ld || eInst.iType == Lr || eInst.iType == Sc) begin
             eInst.data <- dCache.resp;
             $display("Core %d get dcache ", id, fshow(eInst.data));
