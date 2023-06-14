@@ -41,7 +41,7 @@ module mkCore#(CoreID id)(
     ICache               iCache <- mkICache(iMem);
     MessageFifo#(8)   toParentQ <- mkMessageFifo;
     MessageFifo#(8) fromParentQ <- mkMessageFifo;
-    DCache               dCache <- mkDCache(id, toMessageGet(fromParentQ), toMessagePut(toParentQ), refDMem);
+    DCache               dCache <- mkDCacheStQ(id, toMessageGet(fromParentQ), toMessagePut(toParentQ), refDMem);
 
     rule doFetch if (csrf.started && stage == Fetch);
         iCache.req(pc);
@@ -87,6 +87,7 @@ module mkCore#(CoreID id)(
                 let rid <- memReqIDGen.getID;
                 let req = MemReq { op: Fence, addr: ?, data: ?, rid: rid };
                 dCache.req(req);
+                $display("fence----------");
             end
             default: begin
             end

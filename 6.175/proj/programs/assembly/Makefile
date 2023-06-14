@@ -31,8 +31,10 @@ rv32ui_tests = \
 	srl srli \
 	sub \
 	xor xori \
-	bpred_bht bpred_j bpred_ras \
+	bpred_bht bpred_j bpred_j_noloop bpred_ras \
 	cache \
+	cache_conflict \
+	stq \
 
 #--------------------------------------------------------------------
 # Build rules

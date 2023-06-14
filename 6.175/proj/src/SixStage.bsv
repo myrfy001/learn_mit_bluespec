@@ -21,7 +21,7 @@ import Bht::*;
 import Scoreboard::*;
 import Ras :: *;
 import ICache::*;
-import DCache::*;
+import DCacheStQ::*;
 import MessageFifo::*;
 import RefTypes::*;
 import MemReqIDGen::*;
@@ -125,7 +125,7 @@ module mkCore#(CoreID id)(
     MessageFifo#(8) fromParentQ <- mkMessageFifo;
 
 	ICache iMem <- mkICache(iWideMem);
-	DCache dMem <- mkDCache(id, toMessageGet(fromParentQ), toMessagePut(toParentQ), refDMem);
+	DCache dMem <- mkDCacheStQ(id, toMessageGet(fromParentQ), toMessagePut(toParentQ), refDMem);
 
 	// EHR for redirection
 	Ehr#(2, Maybe#(ExeRedirect)) exeRedirect <- mkEhr(Invalid);

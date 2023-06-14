@@ -5,6 +5,7 @@ import Types::*;
 import RefTypes::*;
 import MemTypes::*;
 import ProcTypes::*;
+import StQ::*;
 
 typedef enum{Ready, StartMiss, SendFillReq, WaitFillResp, Resp} CacheStatus
     deriving(Eq, Bits, FShow);
@@ -14,7 +15,7 @@ typedef struct {
     MSI msi;
 } CacheLineInfo deriving(Bits, FShow);
 
-module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMem, DCache ifc);
+module mkDCacheStQ#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMem, DCache ifc);
 
     Reg#(CacheStatus) cacheState <- mkReg(Ready);
     Reg#(Maybe#(CacheLineAddr)) linkAddr <- mkReg(Invalid);
@@ -23,6 +24,8 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
     Vector#(CacheRows, Reg#(CacheLineInfo)) cli <- replicateM(mkReg(CacheLineInfo{msi: I}));
     Reg#(MemReq) missReq <- mkRegU;
 
+    StQ#(StQSize) stq <- mkStQ;
+
     Fifo#(2, MemResp) respQ <- mkBypassFifo;
     Fifo#(2, MemReq) reqQ <- mkCFFifo;
 
@@ -30,9 +33,9 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
         return {tag, index, sel, 0};
     endfunction
 
-    rule doDebug;
-        $display("%0t  DCache@core %d cacheState = ", $time, id, fshow(cacheState), " fromMem.hasResp=", fromMem.hasResp , " fromMem.hasReq=", fromMem.hasReq );
-    endrule
+    // rule doDebug;
+    //     $display("%0t  DCache@core %d cacheState = ", $time, id, fshow(cacheState), " fromMem.hasResp=", fromMem.hasResp , " fromMem.hasReq=", fromMem.hasReq );
+    // endrule
 
     rule doStartMiss (cacheState == StartMiss);
         $display("%0t  DCache@core %d doStartMiss:", $time, id);
@@ -80,6 +83,8 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
             end
         end else if (missReq.op == St) begin
             refDMem.commit(missReq, tagged Valid d, tagged Invalid);
+            stq.deq;
+            $display("%0t  DCache@core %d deq Stq r = ", $time, id, fshow(missReq));
             d[wordIdx] = missReq.data;
         end else if (missReq.op == Sc) begin
             if (isValid(linkAddr) && fromMaybe(?, linkAddr) == getLineAddr(missReq.addr)) begin
@@ -92,6 +97,8 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
                 respQ.enq(scFail);
                 $display("%0t  DCache@core %d sc fail", $time, id);
             end
+            stq.deq;
+            $display("%0t  DCache@core %d deq Stq r = ", $time, id, fshow(missReq));
             linkAddr <= tagged Invalid;
             $display("%0t  DCache@core %d invalid linkAddr because Sc finished, origin = %x", $time, id, fromMaybe(?,linkAddr));
         end
@@ -110,10 +117,28 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
         cacheState <= Ready;
     endrule
 
-    rule doReady (cacheState == Ready);
 
+    rule doHandleFenceReq(cacheState == Ready && reqQ.first.op == Fence && !stq.notEmpty);
+        $display("%0t  DCache@core %d do fence run", $time, id);
+        reqQ.deq;
+    endrule
+
+    rule doHandleStoreReq(reqQ.first.op == St || (reqQ.first.op == Sc && !stq.notEmpty));
         let r = reqQ.first;
         reqQ.deq;
+        stq.enq(r);
+        $display("%0t  DCache@core %d move reqQ to StQ r = ", $time, id, fshow(r));
+    endrule
+
+    rule debugCommit;
+        $display("%0t  DCache@core %d debug cacheState=", $time, id, fshow(cacheState), " stq.isIssued = ", fshow(stq.isIssued), " reqQ.first = ", fshow(reqQ.first) );
+    endrule
+
+    rule doCommitStoreQ(cacheState == Ready && !stq.isIssued && ((reqQ.notEmpty && reqQ.first.op != Ld) || !reqQ.notEmpty));
+
+        MemReq r <- stq.issue;
+
+        $display("%0t  DCache@core %d issue StQ  r= ", $time, id, fshow(r));
 
         refDMem.issue(r);
         CacheIndex lineIdx = getIndex(r.addr);
@@ -124,48 +149,40 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
         
         if (cli[lineIdx].tag == getTag(r.addr)) begin
             $display("%0t  DCache@core %d hit========", $time, id, fshow(cli[lineIdx]));
-            if (r.op == Ld || r.op == Lr) begin
-                if (cli[lineIdx].msi > I) begin
-                    refDMem.commit(r, tagged Valid storage[lineIdx], tagged Valid storage[lineIdx][wordIdx]);
-                    respQ.enq(storage[lineIdx][wordIdx]);
-                end else if (cli[lineIdx].msi == I) begin
-                    cacheState <= SendFillReq;
-                end
-                if (r.op == Lr) begin
-                    linkAddr <= tagged Valid getLineAddr(r.addr);
-                end
-            end else if (r.op == St || r.op == Sc) begin
-                
-                if (respScFail) begin
-                    respQ.enq(scFail);
-                    refDMem.commit(r, tagged Valid storage[lineIdx], tagged Valid scFail);
-                    $display("%0t  DCache@core %d sc Fail", $time, id);
-                    linkAddr <= tagged Invalid;
-                end else begin
-                    if (cli[lineIdx].msi == M) begin 
-                        CacheLine line = storage[lineIdx];
-                        line[wordIdx] = r.data;
-                        storage[lineIdx] <= line; 
-                        if (r.op == Sc) begin
-                            respQ.enq(scSucc);
-                            refDMem.commit(r, tagged Valid storage[lineIdx], tagged Valid scSucc);
-                            linkAddr <= tagged Invalid;
-                            $display("%0t  DCache@core %d sc success", $time, id);
-                        end else begin
-                            refDMem.commit(r, tagged Valid storage[lineIdx], tagged Invalid);
-                        end
+            if (respScFail) begin
+                respQ.enq(scFail);
+                refDMem.commit(r, tagged Valid storage[lineIdx], tagged Valid scFail);
+                stq.deq;
+                $display("%0t  DCache@core %d sc Fail", $time, id);
+                $display("%0t  DCache@core %d deq Stq r = ", $time, id, fshow(r));
+                linkAddr <= tagged Invalid;
+            end else begin
+                if (cli[lineIdx].msi == M) begin 
+                    CacheLine line = storage[lineIdx];
+                    line[wordIdx] = r.data;
+                    storage[lineIdx] <= line; 
+                    if (r.op == Sc) begin
+                        respQ.enq(scSucc);
+                        refDMem.commit(r, tagged Valid storage[lineIdx], tagged Valid scSucc);
+                        linkAddr <= tagged Invalid;
+                        $display("%0t  DCache@core %d sc success", $time, id);
                     end else begin
-                        // now is S or I, need upgrade
-                        cacheState <= SendFillReq;
+                        refDMem.commit(r, tagged Valid storage[lineIdx], tagged Invalid);
                     end
+                    stq.deq;
+                    $display("%0t  DCache@core %d deq Stq r = ", $time, id, fshow(r));
+                end else begin
+                    // now is S or I, need upgrade
+                    cacheState <= SendFillReq;
                 end
             end
         end else begin
-            
-            if (r.op == Sc && respScFail) begin
+            if (respScFail) begin
                 respQ.enq(scFail);
                 refDMem.commit(r, tagged Valid storage[lineIdx], tagged Valid scFail);
+                stq.deq;
                 $display("%0t  DCache@core %d sc Fail", $time, id);
+                $display("%0t  DCache@core %d deq Stq r = ", $time, id, fshow(r));
                 linkAddr <= tagged Invalid;
             end else begin
                 if (cli[lineIdx].msi == I) begin
@@ -173,6 +190,43 @@ module mkDCache#(CoreID id)(MessageGet fromMem, MessagePut toMem, RefDMem refDMe
                 end else begin
                     cacheState <= StartMiss;
                 end
+            end
+        end
+    endrule
+
+    rule doHandleLoadReq(cacheState == Ready && (reqQ.first.op == Ld || (reqQ.first.op == Lr && !stq.notEmpty)));
+
+        let r = reqQ.first;
+        reqQ.deq;
+
+        refDMem.issue(r);
+        CacheIndex lineIdx = getIndex(r.addr);
+        CacheWordSelect wordIdx = getWordSelect(r.addr);
+
+        missReq <= r;
+        Bool respScFail = (r.op == Sc && (!isValid(linkAddr) || getLineAddr(r.addr) != fromMaybe(?, linkAddr)));
+        if (reqQ.first.op == Ld &&& stq.search(r.addr) matches tagged Valid .stqRes) begin
+            $display("%0t  DCache@core %d Load hit STQ========", $time, id, fshow(r));
+            refDMem.commit(r, tagged Invalid, tagged Valid stqRes);
+            respQ.enq(stqRes);
+        end else if (cli[lineIdx].tag == getTag(r.addr)) begin
+            $display("%0t  DCache@core %d hit========", $time, id, fshow(cli[lineIdx]));
+            
+            if (cli[lineIdx].msi > I) begin
+                refDMem.commit(r, tagged Valid storage[lineIdx], tagged Valid storage[lineIdx][wordIdx]);
+                respQ.enq(storage[lineIdx][wordIdx]);
+            end else if (cli[lineIdx].msi == I) begin
+                cacheState <= SendFillReq;
+            end
+            if (r.op == Lr) begin
+                linkAddr <= tagged Valid getLineAddr(r.addr);
+            end
+        end else begin
+            $display("%0t  DCache@core %d Load Miss, Need load from parend========", $time, id, fshow(r));
+            if (cli[lineIdx].msi == I) begin
+                cacheState <= SendFillReq;
+            end else begin
+                cacheState <= StartMiss;
             end
         end
     endrule
