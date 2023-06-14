@@ -1,30 +1,11 @@
 #!/bin/bash
 
 
-asm_tests=(
-	simple
-	add addi
-	and andi
-	auipc
-	beq bge bgeu blt bltu bne
-	j jal jalr
-	lw
-	lui
-	or ori
-	sw
-	sll slli
-	slt slti
-	sra srai
-	srl srli
-	sub
-	xor xori
-	bpred_bht bpred_j bpred_ras
-	cache
-	cache_conflict
-	stq
+bmarks_tests=(
+	mc_dekker
 	)
 
-vmh_dir=programs/build/assembly/bin
+vmh_dir=programs/build/mc_bench_tso/bin
 log_dir=logs
 wait_time=3
 
@@ -33,11 +14,10 @@ mkdir -p ${log_dir}
 
 # kill previous bsim if any
 
+pkill ubuntu.exe
 pkill bsim
-pkill ubuntu.exe 
 # run each test
-for test_name in ${asm_tests[@]}; do
-	echo "-- assembly test: ${test_name} --"
+for test_name in ${bmarks_tests[@]}; do
 	# copy vmh file
 	mem_file=${vmh_dir}/${test_name}.riscv
 	if [ ! -f $mem_file ]; then
@@ -48,8 +28,8 @@ for test_name in ${asm_tests[@]}; do
 
 	# run test
 	make run.bluesim > ${log_dir}/${test_name}.log # run bsim, redirect outputs to log
-	sleep ${wait_time}
+	sleep ${wait_time} # wait for bsim to setup
+    pkill ubuntu.exe
+    pkill bsim
 	echo ""
 done
-pkill bsim
-pkill ubuntu.exe 
