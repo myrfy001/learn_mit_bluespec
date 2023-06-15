@@ -350,31 +350,35 @@ module mkCore#(CoreID id)(
 
         if (e2m_maybe matches tagged Valid .e2m) begin
             let eInst = e2m.eInst;
-            $display("[%d] core %d Memory: PC = %x", cycle, id, e2m.pc);
+            
 
+            MemReqID rid = 32'hAAAAAAAA;
             // memory
             case (eInst.iType) 
                 Ld: begin
-                    let rid <- memReqIDGen.getID;
+                    rid <- memReqIDGen.getID;
                     dMem.req(MemReq{op: Ld, addr: eInst.addr, data: ?, rid: rid});
                 end
                 St: begin
-                    let rid <- memReqIDGen.getID;
+                    rid <- memReqIDGen.getID;
                     dMem.req(MemReq{op: St, addr: eInst.addr, data: eInst.data, rid: rid});
                 end
                 Lr: begin
-                    let rid <- memReqIDGen.getID;
+                    rid <- memReqIDGen.getID;
                     dMem.req(MemReq{op: Lr, addr: eInst.addr, data: eInst.data, rid: rid});
                 end
                 Sc: begin
-                    let rid <- memReqIDGen.getID;
+                    rid <- memReqIDGen.getID;
                     dMem.req(MemReq{op: Sc, addr: eInst.addr, data: eInst.data, rid: rid});
                 end
                 Fence: begin
-                    let rid <- memReqIDGen.getID;
+                    rid <- memReqIDGen.getID;
                     dMem.req(MemReq{op: Fence, addr: eInst.addr, data: eInst.data, rid: rid});
                 end
             endcase
+
+            $display("[%d] core %d Memory: PC = %x, memreq_id = %x", cycle, id, e2m.pc, rid);
+
 
             Memory2WriteBack m2w = Memory2WriteBack {
                 pc: e2m.pc,
