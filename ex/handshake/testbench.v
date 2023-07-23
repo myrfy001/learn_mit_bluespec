@@ -4,7 +4,7 @@ module testbench;
     reg [7:0] data_cnt;
     reg clk;
     reg rst_n;
-    wire [7:0] up_data;
+    reg [7:0] up_data;
     reg up_valid;
     wire up_ready;
     wire [7:0] down_data;
@@ -13,8 +13,6 @@ module testbench;
 
     reg [7:0] last_down_receive;
     reg next_up_valid;
-
-    assign up_data = data_cnt;
 
 
     valid_proxy dut(
@@ -48,61 +46,71 @@ module testbench;
 
     always #1 clk = ~ clk;
 
-    always @ (negedge rst_n) begin
-        step_cnt = 0;
-        data_cnt = 0;
-        last_down_receive = 8'hx;
-        down_ready = 0;
-    end
 
-    always @ (posedge clk) begin
-        step_cnt <= step_cnt + 1;
-        if (step_cnt == 255) begin
-            $finish;
-        end
-
-
-        if (step_cnt < 10) begin
-            next_up_valid = 1;
-            down_ready <= 1;
-        end else if (step_cnt < 20) begin
-            next_up_valid = ~up_valid;
-            down_ready <= 1;
-        end else if (step_cnt < 30) begin
-            next_up_valid = 1;
-            down_ready <= ~down_ready;
-        end else if ((step_cnt < 50) && (step_cnt % 4 == 0)) begin
-            next_up_valid = ~up_valid;
-            down_ready <= 1;
-        end else if ((step_cnt < 70) && (step_cnt % 4 == 0)) begin
-            next_up_valid = 1;
-            down_ready <= ~down_ready;
-        end else if (step_cnt >= 70 && step_cnt < 75) begin
-            next_up_valid = 0;
+    always @ (posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            step_cnt <= 0;
+            data_cnt <= 0;
+            last_down_receive <= 8'hx;
             down_ready <= 0;
-        end else if (step_cnt >= 90) begin
-            next_up_valid = 1;
-            down_ready <= 1;
-        end
+            up_valid <= 0;
+            next_up_valid <= 0;
+        end else begin
+            step_cnt <= step_cnt + 1;
+            if (step_cnt == 255) begin
+                $finish;
+            end
 
-        up_valid <= next_up_valid;
 
-        if (next_up_valid && up_ready) begin
-            data_cnt <= data_cnt + 1;
-        end
+            if (step_cnt < 10) begin
+                next_up_valid = 1;
+                down_ready <= 1;
+            end else if (step_cnt < 20) begin
+                next_up_valid = ~up_valid;
+                down_ready <= 1;
+            end else if (step_cnt < 30) begin
+                next_up_valid = 1;
+                down_ready <= ~down_ready;
+            end else if ((step_cnt < 50) && (step_cnt % 4 == 0)) begin
+                next_up_valid = ~up_valid;
+                down_ready <= 1;
+            end else if ((step_cnt < 70) && (step_cnt % 4 == 0)) begin
+                next_up_valid = 1;
+                down_ready <= ~down_ready;
+            end else if (step_cnt >= 70 && step_cnt < 75) begin
+                next_up_valid = 0;
+                down_ready <= 0;
+            end else if (step_cnt >= 90) begin
+                next_up_valid = 1;
+                down_ready <= 1;
+            end
 
-        if (down_valid && down_ready) begin
-            if (last_down_receive === 8'hx) begin
-                last_down_receive <= 0;
-                if (down_data != 0 ) begin
+            up_valid <= next_up_valid;
+
+            if (up_valid && up_ready) begin
+                data_cnt <= data_cnt + 1;
+                if (next_up_valid) begin
+                    up_data <= data_cnt + 1;
+                end
+            end else if (next_up_valid) begin
+                up_data <= data_cnt;
+            end
+
+            
+
+            if (down_valid && down_ready) begin
+                if (last_down_receive === 8'hx) begin
+                    last_down_receive <= 0;
+                    if (down_data != 0 ) begin
+                        $display("data out error\n");
+                        $finish;
+                    end
+                end else if (last_down_receive + 1 != down_data) begin
                     $display("data out error\n");
                     $finish;
+                end else begin 
+                    last_down_receive <= down_data;
                 end
-            end else if (last_down_receive + 1 != down_data) begin
-                $display("data out error\n");
-                $finish;
-            end else begin 
-                last_down_receive <= down_data;
             end
         end
     end
