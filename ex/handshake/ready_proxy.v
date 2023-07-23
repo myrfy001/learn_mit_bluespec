@@ -45,9 +45,11 @@ module ready_proxy(
                 data_reg <= up_data;
             end
 
-            // 如果下游满足握手条件，那么，由于缓存寄存器里面的数据一定优先排空，所以只要握手成功，就可以
-            // 把valid_reg清零了。如果原来就是0，清零也没有副作用。
-            if (down_valid && down_ready) begin
+            // 此处相对于上一条commit的优化：
+            // 分析逻辑可以知道，只要下游给出了ready信号，那么如果自己缓存里有东西，那么一定会将其优先排空，
+            // 所以这里只需要判断ready信号就行了。相比于上一个commit，省掉一个与门。down_valid信号对应的或门也
+            // 减少了一个扇出数。
+            if (down_ready) begin
                 valid_reg <= 0;
             end            
         end
