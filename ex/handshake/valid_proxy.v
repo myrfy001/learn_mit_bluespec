@@ -31,18 +31,12 @@ module valid_proxy(
             valid_reg <= 0;
         end else begin
 
-            // 将打拍模块从中间一分为二，从下游看的逻辑。
-            //如果下游观察到valid/ready握手成功，则认为寄存器数据排空了，因此将valid置为无效
-            if (down_ready && down_valid) begin
-                valid_reg <= 0;
-            end
-
-
-            // 从上游端口观察，如果观察到valid/ready握手成功，则认为上游的数据应该进入到寄存器中
-            // 这里非常依赖up_ready信号的生成，隐含条件是如果现在寄存器没有排空，则up_ready不成立
-            // 按照书写优先级，这里的data_reg赋值操作会覆盖上面的操作，从FIFO的角度理解，上一个if是出队，
-            // 这个if是入队，也就是先出队再入队的pipeline fifo
-            if (up_ready && up_valid) begin
+            // 相比于上一个commit，可以看到这里不再分别从上游和下游两个端口来看问题了，而是简化成了只从上游看问题。
+            // 上一个commit中，先看下游的状态，根据下游是否消耗掉一个数据先临时修改valid的状态，然后这个valid状态可能在后续根据上游
+            // 的状态被覆写掉。
+            // 事实上，覆写这个操作是冗余的，可以通过直接接收上游source给出的up_valid状态就可以了。valid相当于是上游source控制的，自己不需要
+            // 再倒手处理一遍valid的状态。
+            if (up_ready) begin
                 valid_reg <= up_valid;
                 data_reg <= up_data;
             end 
