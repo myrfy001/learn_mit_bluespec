@@ -15,7 +15,7 @@ module testbench;
     reg next_up_valid;
 
 
-    valid_proxy dut(
+    ready_proxy dut(
         .clk(clk),
         .rst_n(rst_n),
         .up_data(up_data),
