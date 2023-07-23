@@ -11,7 +11,7 @@ module testbench;
     wire down_valid;
     reg down_ready;
 
-    reg [7:0] last_down_receive;
+    reg [7:0] expected_down_data;
     reg next_up_valid;
 
 
@@ -51,7 +51,7 @@ module testbench;
         if (!rst_n) begin
             step_cnt <= 0;
             data_cnt <= 0;
-            last_down_receive <= 8'hx;
+            expected_down_data <= 0;
             down_ready <= 0;
             up_valid <= 0;
             next_up_valid <= 0;
@@ -99,19 +99,13 @@ module testbench;
             
 
             if (down_valid && down_ready) begin
-                if (last_down_receive === 8'hx) begin
-                    last_down_receive <= 0;
-                    if (down_data != 0 ) begin
-                        $display("data out error\n");
-                        $finish;
-                    end
-                end else if (last_down_receive + 1 != down_data) begin
+                if (expected_down_data != down_data) begin
                     $display("data out error\n");
                     $finish;
-                end else begin 
-                    last_down_receive <= down_data;
                 end
+                expected_down_data <= expected_down_data + 1;
             end
+
         end
     end
 endmodule
