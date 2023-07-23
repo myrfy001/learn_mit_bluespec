@@ -41,7 +41,7 @@ module valid_proxy(
             // 从上游端口观察，如果观察到valid/ready握手成功，则认为上游的数据应该进入到寄存器中
             // 这里非常依赖up_ready信号的生成，隐含条件是如果现在寄存器没有排空，则up_ready不成立
             // 按照书写优先级，这里的data_reg赋值操作会覆盖上面的操作，从FIFO的角度理解，上一个if是出队，
-            // 这个if是入队，也就是先出队再入队的bypass fifo
+            // 这个if是入队，也就是先出队再入队的pipeline fifo
             if (up_ready && up_valid) begin
                 valid_reg <= up_valid;
                 data_reg <= up_data;
