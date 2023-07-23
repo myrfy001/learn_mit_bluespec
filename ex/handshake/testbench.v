@@ -12,6 +12,7 @@ module testbench;
     reg down_ready;
 
     reg [7:0] last_down_receive;
+    reg next_up_valid;
 
     assign up_data = data_cnt;
 
@@ -60,18 +61,33 @@ module testbench;
             $finish;
         end
 
+
         if (step_cnt < 10) begin
-            up_valid <= 1;
+            next_up_valid = 1;
             down_ready <= 1;
         end else if (step_cnt < 20) begin
-            up_valid <= ~up_valid;
+            next_up_valid = ~up_valid;
             down_ready <= 1;
-        end else begin
-            up_valid <= 1;
+        end else if (step_cnt < 30) begin
+            next_up_valid = 1;
             down_ready <= ~down_ready;
+        end else if ((step_cnt < 50) && (step_cnt % 4 == 0)) begin
+            next_up_valid = ~up_valid;
+            down_ready <= 1;
+        end else if ((step_cnt < 70) && (step_cnt % 4 == 0)) begin
+            next_up_valid = 1;
+            down_ready <= ~down_ready;
+        end else if (step_cnt >= 70 && step_cnt < 75) begin
+            next_up_valid = 0;
+            down_ready <= 0;
+        end else if (step_cnt >= 90) begin
+            next_up_valid = 1;
+            down_ready <= 1;
         end
 
-        if (up_valid && up_ready) begin
+        up_valid <= next_up_valid;
+
+        if (next_up_valid && up_ready) begin
             data_cnt <= data_cnt + 1;
         end
 
