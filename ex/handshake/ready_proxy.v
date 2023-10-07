@@ -35,16 +35,14 @@ module ready_proxy(
             valid_reg <= 0;
         end else begin
             
-            // 此处相对于上一条commit的优化：
-            // 观察上一条commit的两个if条件，可以发现其中因为down_ready条件的存在，两个if语句是互斥的，因此可以重新写成下面的样子：
-            // 这样又减少了1个与门和1个非门
-            // 刚才是根据逻辑表达式发现可以这样合并，再从逻辑上再理解一下，发现也很清晰：
-            // 只要下游给出ready信号，那么当前clk到达以后，下一个周期自己内部的缓存则一定是空的。
-            // 只有在下游接不了，而且上游又握手成功的情况下，才启用自己的内部缓存。
             if (down_ready) begin
                 valid_reg <= 0;
-            end else if (up_valid && up_ready) begin
-                valid_reg <= 1;
+            end else if (up_ready) begin   // 此处相对于上一条commit的优化：进一步减少了一个与门，但是可能对up侧的要求更严格，即上游master的valid拉高以后，除非握手成功，否则不能改变。
+                                           // 而前一个commit的写法里面，对master的行为不规范有一定的容忍度。
+                                           // 这里的`up_ready`实际上是`~valid_reg`，也就是说，只要缓存区是空的，就可以让新的状态进来，如果进来的valid状态是0，那么相当于
+                                           // 状态没有改变，可以继续等待数据进来，一旦进来的valid状态是1，那么这个时刻的data和valid就被锁存到缓存区了，并且在排空之前不会接收新的数据进来。
+                                           // 再换一个角度理解，就从`up_ready`的字面意思理解，就是从上游角度来看，下游已经给出了ready信号，那么这个时候显然是可以接收数据的。
+                valid_reg <= up_valid;
                 data_reg <= up_data;
             end
             
